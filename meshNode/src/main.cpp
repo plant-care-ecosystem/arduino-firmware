@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <WiFi.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h> // Include the DHT library
@@ -19,6 +20,7 @@ String nodeName;
 DHT dht(DHTPIN, DHTTYPE); // Create a DHT object
 
 // Function declarations
+String createJsonString(float temperature_f, float temperature_c, float humidity);
 void dhtReadTask(void *pvParameters);
 void sendData(void *pvParameters);
 
@@ -29,21 +31,21 @@ void setup() {
 
   // Setup the mesh network
   mesh.setDebugMsgTypes(ERROR);  // set before init() so that you can see startup messages
-
   mesh.init(MESH_SSID, MESH_PASSWORD, &userScheduler, MESH_PORT);
 
+  // Set mesh node name to the node id
   nodeName = String(mesh.getNodeId());
-
   mesh.setName(nodeName); // This needs to be an unique name! 
 
+  // Handle message receiving
   mesh.onReceive([](uint32_t from, String &msg) {
     Serial.printf("Received message by id from: %u, %s\n", from, msg.c_str());
   });
-
   mesh.onReceive([](String &from, String &msg) {
     Serial.printf("Received message by name from: %s, %s\n", from.c_str(), msg.c_str());
   });
 
+  // Handle changed connections
   mesh.onChangedConnections([]() {
     Serial.printf("Changed connection\n");
   });
@@ -100,7 +102,9 @@ void sendData(void *pvParameters) {
   (void)pvParameters; // Unused parameter
 
   for (;;) {
-    String msg = "Humidity: " + String(dht.readHumidity()) + "%, Temperature: " + String(dht.readTemperature()) + "°C" + " from " + nodeName;
+    // Read sensor values
+    String msg = createJsonString(dht.readTemperature(true), dht.readTemperature(), dht.readHumidity());
+    // String msg = "Humidity: " + String(dht.readHumidity()) + "%, Temperature: " + String(dht.readTemperature()) + "°C" + " from " + nodeName;
     String to = "prov";
     // Send data over mesh network
     mesh.sendSingle(to, msg);
@@ -108,4 +112,19 @@ void sendData(void *pvParameters) {
     // Wait for 5 seconds before the next message
     vTaskDelay(pdMS_TO_TICKS(5000));
   }
+}
+
+// Put sensor data into a JSON string
+String createJsonString(float temperature_f, float temperature_c, float humidity) {
+  StaticJsonDocument<200> doc;
+
+  doc["nodeId"] = nodeName;
+  doc["temperatureF"] = temperature_f;
+  doc["temperatureC"] = temperature_c;
+  doc["humidity"] = humidity;
+
+  String jsonString;
+  serializeJson(doc, jsonString);
+
+  return jsonString;
 }
