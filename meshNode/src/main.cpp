@@ -1,9 +1,10 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
-#include <Adafruit_Sensor.h>
-#include <DHT.h> // Include the DHT library
+// #include <Adafruit_Sensor.h>
+// #include <DHT.h> // Include the DHT library
 // Include namedMesh.h from ./lib
+#include "sensor.h"
 #include "namedMesh.h"
 
 // Mesh configuration
@@ -15,9 +16,11 @@ namedMesh  mesh;
 String nodeName;
 
 // DHT11 sensor configuration
-#define DHTPIN 20 // Define the pin for DHT11 data
-#define DHTTYPE DHT11 // Define the type of DHT sensor
-DHT dht(DHTPIN, DHTTYPE); // Create a DHT object
+// #define DHTPIN 20 // Define the pin for DHT11 data
+// #define DHTTYPE DHT11 // Define the type of DHT sensor
+#define SENSOR_1_PIN 20
+#define SENSOR_1_TYPE MESH_DHT11
+Sensor* sensor1;
 
 // Function declarations
 String createJsonString(float temperature_f, float temperature_c, float humidity);
@@ -28,6 +31,10 @@ void sendData(void *pvParameters);
 void setup() {
   // Start serial monitoring for debugging
   Serial.begin(115200);
+
+  // Create new sensor factory
+  SensorFactory* sensorFactory = new DHTSensorFactory();
+  sensor1 = sensorFactory->createSensor(SENSOR_1_TYPE, SENSOR_1_PIN);
 
   // Setup the mesh network
   mesh.setDebugMsgTypes(ERROR);  // set before init() so that you can see startup messages
@@ -49,9 +56,6 @@ void setup() {
   mesh.onChangedConnections([]() {
     Serial.printf("Changed connection\n");
   });
-
-  // Start the DHT sensor
-  dht.begin();
 
   // // Create FreeRTOS task for reading from DT11
   // xTaskCreate(dhtReadTask,      // Task function
@@ -76,26 +80,26 @@ void loop() {
   mesh.update();
 }
 
-// Task function to read DHT sensor data
-void dhtReadTask(void *pvParameters) {
-  (void)pvParameters; // Unused parameter
+// // Task function to read DHT sensor data
+// void dhtReadTask(void *pvParameters) {
+//   (void)pvParameters; // Unused parameter
 
-  for (;;) {
-    // Read sensor values
-    float humidity = dht.readHumidity();
-    float temperature = dht.readTemperature();
+//   for (;;) {
+//     // Read sensor values
+//     float humidity = dht.readHumidity();
+//     float temperature = dht.readTemperature();
 
-    // Print the values to serial monitor
-    Serial.print("Humidity: ");
-    Serial.print(humidity);
-    Serial.print("%, Temperature: ");
-    Serial.print(temperature);
-    Serial.println("°C");
+//     // Print the values to serial monitor
+//     Serial.print("Humidity: ");
+//     Serial.print(humidity);
+//     Serial.print("%, Temperature: ");
+//     Serial.print(temperature);
+//     Serial.println("°C");
 
-    // Wait for 2 seconds before the next reading
-    vTaskDelay(pdMS_TO_TICKS(2000));
-  }
-}
+//     // Wait for 2 seconds before the next reading
+//     vTaskDelay(pdMS_TO_TICKS(2000));
+//   }
+// }
 
 // Task function to send data over mesh network
 void sendData(void *pvParameters) {
@@ -103,11 +107,19 @@ void sendData(void *pvParameters) {
 
   for (;;) {
     // Read sensor values
-    String msg = createJsonString(dht.readTemperature(true), dht.readTemperature(), dht.readHumidity());
-    // String msg = "Humidity: " + String(dht.readHumidity()) + "%, Temperature: " + String(dht.readTemperature()) + "°C" + " from " + nodeName;
-    String to = "prov";
-    // Send data over mesh network
-    mesh.sendSingle(to, msg);
+    sensor1->readSensor();
+
+    // Print temperature and humidity to serial monitor
+    Serial.printf("Humidity: %f\n", sensor1->getHumidity());
+    Serial.printf("Temperature C: %f\n", sensor1->getTemperatureC());
+    Serial.printf("Temperature F: %f\n", sensor1->getTemperatureF());
+
+    // // Read sensor values
+    // String msg = createJsonString(dht.readTemperature(true), dht.readTemperature(), dht.readHumidity());
+    // // String msg = "Humidity: " + String(dht.readHumidity()) + "%, Temperature: " + String(dht.readTemperature()) + "°C" + " from " + nodeName;
+    // String to = "prov";
+    // // Send data over mesh network
+    // mesh.sendSingle(to, msg);
 
     // Wait for 5 seconds before the next message
     vTaskDelay(pdMS_TO_TICKS(5000));
