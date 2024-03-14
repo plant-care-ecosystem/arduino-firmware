@@ -38,6 +38,8 @@ enum MessageType {
  */
 void serialInit();
 
+void sendNameToNode(String currentName, String newName);
+
 void handleMessage(String &from, String &msg);
 
 /*
@@ -51,6 +53,28 @@ void meshInit();
 
 void sendToPoster(String message);
 
+void readSerialInputTask(void * parameter) {
+  for (;;) {
+    if (Serial.available()) {
+      String input = Serial.readStringUntil('\n');
+      Serial.printf("Current name: %s\n", input.c_str());
+      StaticJsonDocument<200> doc;
+      DeserializationError error = deserializeJson(doc, input);
+      if (error) {
+        Serial.print(F("deserializeJson() failed: "));
+        Serial.println(error.c_str());
+        return;
+      }
+      String newName = doc["newName"];
+      Serial.printf("New name: %s\n", newName.c_str());
+      String currentName = doc["name"];
+      Serial.printf("Name: %s\n", currentName.c_str());
+      sendNameToNode(currentName, newName);
+      
+    }
+    vTaskDelay(1); // Delay for task switching
+  }
+}
 
 // Setup ----------------------------------------------------------------------
 void setup() {
@@ -71,6 +95,8 @@ void setup() {
   //     vTaskDelay(10000 / portTICK_PERIOD_MS); // Delay for 10 seconds
   //   }
   // }, "printMap", 10000, NULL, 2, NULL);
+
+  xTaskCreate(readSerialInputTask, "ReadSerialInput", 10000, NULL, 1, NULL);
   
 }
 
@@ -102,6 +128,16 @@ void sendNameToNode(String currentName, String newName) {
   StaticJsonDocument<200> doc;
   doc["type"] = "config";
   doc["name"] = newName;
+  // Search for the node ID based on the name
+  uint32_t nodeId;
+  for (auto it = nodeIdToName.begin(); it != nodeIdToName.end(); ++it) {
+    if (it->second == currentName) {
+      nodeId = it->first;
+      break;
+    }
+  }
+  currentName = String(nodeId);
+  
 
   // Convert JSON doc into sendable string
   String jsonString;
