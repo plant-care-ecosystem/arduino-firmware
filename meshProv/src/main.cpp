@@ -145,6 +145,11 @@ void handleMessage(String &from, String &msg) {
     } else {
       // Store node name in map
       nodeIdToName[nodeId] = nodeName;
+      // Print the map for debugging
+      Serial.println("Node ID to name map:");
+      for (auto it = nodeIdToName.begin(); it != nodeIdToName.end(); ++it) {
+        Serial.printf("Node ID: %u, Name: %s\n", it->first, it->second.c_str());
+      }
     }
   }
   // return;

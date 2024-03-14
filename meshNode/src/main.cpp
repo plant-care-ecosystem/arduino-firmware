@@ -2,7 +2,7 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <cstring>
-// #include <EEPROM.h>
+#include <EEPROM.h>
 // #include <Adafruit_Sensor.h>
 // #include <DHT.h> // Include the DHT library
 // Include namedMesh.h from ./lib
@@ -54,7 +54,7 @@ void setup() {
   Serial.begin(115200);
 
   // Initialize EEPROM
-  // EEPROM.begin(EEPROM_SIZE);
+  EEPROM.begin(EEPROM_SIZE);
 
   // Initialize the mesh network
   meshInit();
@@ -95,27 +95,30 @@ void sendMessageHandler(String msg, SndMessageType type) {
       doc["type"] = "hello";
       doc["nodeId"] = mesh.getNodeId();
 
-      // // Check if there is a name already stored in EEPROM
-      // if(EEPROM.read(NAME_CHANGE_FLAG) == 1) {
-      //   char name[EEPROM_SIZE - NODE_NAME];
-      //   for(int i = 0; i < EEPROM_SIZE - NODE_NAME; i++) {
-      //     name[i] = EEPROM.read(NODE_NAME + i);
-      //     // break if null terminator is found
-      //     if(name[i] == '\0') {
-      //       break;
-      //     }
-      //   }
-      //   doc["name"] = name;
-      // } 
-
-
-      if(ncf == 1) {
-        doc["name"] = name_buffer;
-      }
-      // If no name is stored in EEPROM, set name to node ID
+      // Check if there is a name already stored in EEPROM
+      if(EEPROM.read(NAME_CHANGE_FLAG) == 1) {
+        char name[EEPROM_SIZE - NODE_NAME];
+        for(int i = 0; i < EEPROM_SIZE - NODE_NAME; i++) {
+          name[i] = EEPROM.read(NODE_NAME + i);
+          // break if null terminator is found
+          if(name[i] == '\0') {
+            break;
+          }
+        }
+        doc["name"] = name;
+      } 
       else {
         doc["name"] = mesh.getName();
       }
+
+
+      // if(ncf == 1) {
+      //   doc["name"] = name_buffer;
+      // }
+      // // If no name is stored in EEPROM, set name to node ID
+      // else {
+      //   doc["name"] = mesh.getName();
+      // }
 
       // Send hello message
       String jsonString;
@@ -149,28 +152,35 @@ void receiveMessageHandler(String msg) {
     // Store the name in EEPROM
     Serial.println("Received config message");
     String name = doc["name"];
-    // for(int i = 0; i < name.length(); i++) {
-    //   EEPROM.write(NODE_NAME + i, name[i]);
-    // }
-    // Add null terminator
-    // EEPROM.write(NODE_NAME + name.length(), '\0');
-    // // Set name change flag to 1
-    // EEPROM.write(NAME_CHANGE_FLAG, 1);
-    // EEPROM.commit();
-
-    // Store the name into the name buffer
-    // inputting a null terminator when name is empty
     if(name.length() == 0) {
-      name_buffer[0] = '\0';
       ncf = 0;
     }
     else {
       for(int i = 0; i < name.length(); i++) {
-        name_buffer[i] = name[i];
+        EEPROM.write(NODE_NAME + i, name[i]);
       }
-      name_buffer[name.length()] = '\0';
-      ncf = 1;
+      // Add null terminator
+      EEPROM.write(NODE_NAME + name.length(), '\0');
+      // Set name change flag to 1
+      EEPROM.write(NAME_CHANGE_FLAG, 1);
+      EEPROM.commit();
     }
+    // Print the name change flag
+    Serial.printf("Name change flag: %d\n", EEPROM.read(NAME_CHANGE_FLAG));
+
+    // Store the name into the name buffer
+    // inputting a null terminator when name is empty
+    // if(name.length() == 0) {
+    //   name_buffer[0] = '\0';
+    //   ncf = 0;
+    // }
+    // else {
+    //   for(int i = 0; i < name.length(); i++) {
+    //     name_buffer[i] = name[i];
+    //   }
+    //   name_buffer[name.length()] = '\0';
+    //   ncf = 1;
+    // }
     
 
     // Send another hello message to update the name
