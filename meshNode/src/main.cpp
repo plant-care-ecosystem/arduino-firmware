@@ -3,8 +3,8 @@
 #include <WiFi.h>
 #include <cstring>
 #include <EEPROM.h>
-// #include <Adafruit_Sensor.h>
-// #include <DHT.h> // Include the DHT library
+#include <Adafruit_Sensor.h>
+#include <DHT.h> // Include the DHT library
 // Include namedMesh.h from ./lib
 #include "sensor.h"
 #include "namedMesh.h"
@@ -29,23 +29,34 @@ Sensor* sensor1;
 #define EEPROM_SIZE 512
 #define NAME_CHANGE_FLAG 0
 #define NODE_NAME 1
+#define SENSOR_1 103
+#define SENSOR_2 205
+#define SENSOR_3 307
+#define SENSOR_4 409
+#define EEPROM_UNIT_SIZE 102
 char name_buffer[512];
 uint32_t ncf = 0;
+
+// Sensor flags
+bool sensor1_flag = 0;
+bool sensor2_flag = 0;
+bool sensor3_flag = 0;
+bool sensor4_flag = 0;
+String sensor1_id;
 
 // Send message types
 enum SndMessageType {
   HELLO,
+  SENSORHELLO,
   NAME,
   DATA
 };
-
-
 
 // Function declarations
 void meshInit();
 String createJsonString(float temperature_f, float temperature_c, float humidity);
 void dhtReadTask(void *pvParameters);
-void sendData(void *pvParameters);
+void dataTask(void *pvParameters);
 
 
 // Setup
@@ -60,8 +71,9 @@ void setup() {
   meshInit();
 
   // // Create new sensor factory
-  // SensorFactory* sensorFactory = new DHTSensorFactory();
-  // sensor1 = sensorFactory->createSensor(SENSOR_1_TYPE, SENSOR_1_PIN);
+  SensorFactory* sensorFactory = new DHTSensorFactory();
+  sensor1 = sensorFactory->createSensor(SENSOR_1_TYPE, SENSOR_1_PIN);
+  sensor1_flag = 1;
 
   // // Create FreeRTOS task for reading from DT11
   // xTaskCreate(dhtReadTask,      // Task function
@@ -71,19 +83,20 @@ void setup() {
   //             2,                 // Task priority
   //             NULL);             // Task handle
 
-  // Create FreeRTOS task for message sending
-  // xTaskCreate(sendData,      // Task function
-  //             "SendDataTask",    // Task name
-  //             10000,             // Stack size
-  //             NULL,              // Task parameters
-  //             1,                 // Task priority
-  //             NULL);             // Task handle
-
 }
 
 // Loop (most code should be in tasks)
 void loop() {
   mesh.update();
+}
+
+void startSensorTask() {
+  xTaskCreate(dataTask,      // Task function
+              "DataTask",    // Task name
+              10000,             // Stack size
+              NULL,              // Task parameters
+              1,                 // Task priority
+              NULL);             // Task handle
 }
 
 void sendMessageHandler(String msg, SndMessageType type) {
@@ -96,9 +109,10 @@ void sendMessageHandler(String msg, SndMessageType type) {
       doc["nodeId"] = mesh.getNodeId();
 
       // Check if there is a name already stored in EEPROM
+      // TODO: UPDATE THIS TO CHECK IF THE DBID IS ALREADY STORED IN EEPROM
       if(EEPROM.read(NAME_CHANGE_FLAG) == 1) {
-        char name[EEPROM_SIZE - NODE_NAME];
-        for(int i = 0; i < EEPROM_SIZE - NODE_NAME; i++) {
+        char name[EEPROM_UNIT_SIZE];
+        for(int i = 0; i < EEPROM_UNIT_SIZE - NODE_NAME; i++) {
           name[i] = EEPROM.read(NODE_NAME + i);
           // break if null terminator is found
           if(name[i] == '\0') {
@@ -106,9 +120,12 @@ void sendMessageHandler(String msg, SndMessageType type) {
           }
         }
         doc["name"] = name;
+        doc["putTrue"] = 0;
+
       } 
       else {
-        doc["name"] = mesh.getName();
+        // doc["name"] = mesh.getName();
+        doc["putTrue"] = 1;
       }
 
 
@@ -124,18 +141,83 @@ void sendMessageHandler(String msg, SndMessageType type) {
       String jsonString;
       serializeJson(doc, jsonString);
       Serial.println("Sending hello message");
+      // Print the message
+      Serial.println(jsonString);
       mesh.sendSingle(to, jsonString);
       
       break;
     }
+    case SENSORHELLO:
+    {
+      // Check if sensor1 is registered
+      if(sensor1_flag) {
+        // Send message containing node ID and current Name
+        StaticJsonDocument<200> doc;
+        doc["type"] = "sensorhello";
+        doc["nodeId"] = mesh.getNodeId();
+
+        // Check if there is a name already stored in EEPROM
+        // TODO: UPDATE THIS TO CHECK IF THE DBID IS ALREADY STORED IN EEPROM
+        char name[EEPROM_UNIT_SIZE - NODE_NAME];
+        for(int i = 0; i < EEPROM_UNIT_SIZE - NODE_NAME; i++) {
+          name[i] = EEPROM.read(NODE_NAME + i);
+          // break if null terminator is found
+          if(name[i] == '\0') {
+            break;
+          }
+        }
+        doc["plantId"] = name;
+        doc["name"] = "sensor1";
+
+        String jsonString;
+        serializeJson(doc, jsonString);
+        Serial.println("Sending sensorhello message");
+        // Print the message
+        Serial.println(jsonString);
+        mesh.sendSingle(to, jsonString);
+      }
+      break;
+    }
     case NAME:
     {
-      
+      Serial.printf("Unused type: %d\n", type);
       break;
     }
     case DATA:
-      mesh.sendSingle(to, msg);
+    {
+      // mesh.sendSingle(to, msg);
+      // Deserialize the message
+      StaticJsonDocument<200> docIn;
+      deserializeJson(docIn, msg);
+      
+      StaticJsonDocument<200> doc;
+      
+      // Add data header to the message
+      doc["type"] = "data";
+      // // Read the sensor1 ID from EEPROM
+      // char sensor1_id[EEPROM_UNIT_SIZE];
+      // for(int i = 0; i < EEPROM_UNIT_SIZE - SENSOR_1; i++) {
+      //   sensor1_id[i] = EEPROM.read(SENSOR_1 + i);
+      //   // break if null terminator is found
+      //   if(sensor1_id[i] == '\0') {
+      //     break;
+      //   }
+      // }
+      doc["sensorId"] = sensor1_id;
+
+      // Nest the data in a data object
+      JsonObject data = doc.createNestedObject("data");
+      data["temperatureF"] = docIn["temperatureF"];
+      data["temperatureC"] = docIn["temperatureC"];
+      data["humidity"] = docIn["humidity"];
+
+      // Send the data message
+      String jsonString;
+      serializeJson(doc, jsonString);
+      mesh.sendSingle(to, jsonString);
+
       break;
+    }
     default:
       break;
   }
@@ -156,6 +238,7 @@ void receiveMessageHandler(String msg) {
       ncf = 0;
     }
     else {
+      // TODO: ADD CHECK HERE TO MAKE SURE THE LENGTH IS NOT LONGER THAN THE EEPROM
       for(int i = 0; i < name.length(); i++) {
         EEPROM.write(NODE_NAME + i, name[i]);
       }
@@ -185,9 +268,34 @@ void receiveMessageHandler(String msg) {
 
     // Send another hello message to update the name
     sendMessageHandler("", HELLO);
+
+    // Wait 5 seconds
+    vTaskDelay(pdMS_TO_TICKS(5000));
+
+    // Send sensor hello message
+    sendMessageHandler("", SENSORHELLO);
+  }
+  else if(strcmp(type, "sensorConfig") == 0) {
+    // Store the sensor ID in EEPROM
+    Serial.println("Received sensorConfig message");
+    String sensorID = doc["sensorId"];
+    sensor1_id = sensorID;
+    // if(sensor1_id.length() == 0) {
+    //   sensor1_flag = 0;
+    // }
+    // else {
+    //   for(int i = 0; i < sensorID.length(); i++) {
+    //     EEPROM.write(SENSOR_1 + i, sensorID[i]);
+    //   }
+
+      // Print the sensor ID
+      Serial.printf("Sensor ID: %s\n", sensorID.c_str());
+      // Delay for 5 seconds
+      vTaskDelay(pdMS_TO_TICKS(5000));
+      // startSensorTask();
+    }
   }
   // return;
-}
 
 void meshInit() {
   // Setup the mesh network
@@ -210,6 +318,8 @@ void meshInit() {
   // Handle changed connections
   mesh.onChangedConnections([]() {
     Serial.printf("Changed connection\n");
+    // Wait 5 seconds before sending hello message
+    vTaskDelay(pdMS_TO_TICKS(5000));
     // Send hello type message
     sendMessageHandler("", HELLO);
   });
@@ -237,7 +347,7 @@ void meshInit() {
 // }
 
 // Task function to send data over mesh network
-void sendData(void *pvParameters) {
+void dataTask(void *pvParameters) {
   (void)pvParameters; // Unused parameter
 
   for (;;) {
@@ -257,23 +367,13 @@ void sendData(void *pvParameters) {
     // mesh.sendSingle(to, msg);
 
     StaticJsonDocument<200> doc;
-    doc["type"] = "data";
-    doc["nodeId"] = nodeName;
-    // Read name from EEPROM
-    // char name[EEPROM_SIZE - NODE_NAME];
-    // for(int i = 0; i < EEPROM_SIZE - NODE_NAME; i++) {
-    //   name[i] = EEPROM.read(NODE_NAME + i);
-    //   // break if null terminator is found
-    //   if(name[i] == '\0') {
-    //     break;
-    //   }
-    // }
-    doc["name"] = name_buffer;
+    doc["temperatureF"] = sensor1->getTemperatureF();
+    doc["temperatureC"] = sensor1->getTemperatureC();
+    doc["humidity"] = sensor1->getHumidity();
 
     String jsonString;
     serializeJson(doc, jsonString);
-    mesh.sendSingle(to, jsonString);
-
+    sendMessageHandler(jsonString, DATA);
     // Wait for 5 seconds before the next message
     vTaskDelay(pdMS_TO_TICKS(5000));
   }

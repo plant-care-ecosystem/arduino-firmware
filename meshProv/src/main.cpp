@@ -7,7 +7,7 @@
 #include "namedMesh.h" // Include namedMesh.h from ./lib
 
 // Map configuration
-std::map<uint32_t, String> nodeIdToName;
+std::map<uint32_t, uint32_t> nodeIdToName;
 
 // Mesh configuration
 Scheduler userScheduler;           // To control mesh tasks
@@ -53,28 +53,30 @@ void meshInit();
 
 void sendToPoster(String message);
 
-void readSerialInputTask(void * parameter) {
-  for (;;) {
-    if (Serial.available()) {
-      String input = Serial.readStringUntil('\n');
-      Serial.printf("Current name: %s\n", input.c_str());
-      StaticJsonDocument<200> doc;
-      DeserializationError error = deserializeJson(doc, input);
-      if (error) {
-        Serial.print(F("deserializeJson() failed: "));
-        Serial.println(error.c_str());
-        return;
-      }
-      String newName = doc["newName"];
-      Serial.printf("New name: %s\n", newName.c_str());
-      String currentName = doc["name"];
-      Serial.printf("Name: %s\n", currentName.c_str());
-      sendNameToNode(currentName, newName);
+// void readSerialInputTask(void * parameter) {
+//   for (;;) {
+//     if (Serial.available()) {
+//       String input = Serial.readStringUntil('\n');
+//       Serial.printf("Current name: %s\n", input.c_str());
+//       StaticJsonDocument<200> doc;
+//       DeserializationError error = deserializeJson(doc, input);
+//       if (error) {
+//         Serial.print(F("deserializeJson() failed: "));
+//         Serial.println(error.c_str());
+//         return;
+//       }
+//       String newName = doc["newName"];
+//       Serial.printf("New name: %s\n", newName.c_str());
+//       String currentName = doc["name"];
+//       Serial.printf("Name: %s\n", currentName.c_str());
+//       sendNameToNode(currentName, newName);
       
-    }
-    vTaskDelay(1); // Delay for task switching
-  }
-}
+//     }
+//     vTaskDelay(1); // Delay for task switching
+//   }
+// }
+
+void parseSerial(void *pvParameters);
 
 // Setup ----------------------------------------------------------------------
 void setup() {
@@ -96,7 +98,16 @@ void setup() {
   //   }
   // }, "printMap", 10000, NULL, 2, NULL);
 
-  xTaskCreate(readSerialInputTask, "ReadSerialInput", 10000, NULL, 1, NULL);
+  // xTaskCreate(readSerialInputTask, "ReadSerialInput", 10000, NULL, 1, NULL);
+
+        // FreeRTOS task for handling serial port 1
+  xTaskCreate(parseSerial,   // Function to run
+              "SerialPort1Task", // Name of the task
+              10000,             // Stack size (bytes)
+              NULL,              // Parameter to pass
+              1,                 // Task priority
+              NULL               // Task handle
+  );
   
 }
 
@@ -123,30 +134,51 @@ MessageType getMessageType(const char* type) {
   }
 }
 
-
-void sendNameToNode(String currentName, String newName) {
+void sendInitialIdToNode(String nodeId, String dbId) {
   StaticJsonDocument<200> doc;
   doc["type"] = "config";
-  doc["name"] = newName;
-  // Search for the node ID based on the name
-  uint32_t nodeId;
-  for (auto it = nodeIdToName.begin(); it != nodeIdToName.end(); ++it) {
-    if (it->second == currentName) {
-      nodeId = it->first;
-      break;
-    }
-  }
-  currentName = String(nodeId);
-  
+  doc["name"] = dbId;
 
   // Convert JSON doc into sendable string
   String jsonString;
   serializeJson(doc, jsonString);
-
-  Serial.printf("Sending new name to node: %s\n", currentName.c_str());
-
-  mesh.sendSingle(currentName, jsonString);
+  mesh.sendSingle(nodeId, jsonString);
 }
+
+void sendSensorIdToNode(String nodeId, String dbId) {
+  StaticJsonDocument<200> doc;
+  doc["type"] = "sensorConfig";
+  doc["sensorId"] = dbId;
+
+  // Convert JSON doc into sendable string
+  String jsonString;
+  serializeJson(doc, jsonString);
+  mesh.sendSingle(nodeId, jsonString);
+}
+
+// void sendNameToNode(String currentName, String newName) {
+//   StaticJsonDocument<200> doc;
+//   doc["type"] = "config";
+//   doc["name"] = newName;
+//   // Search for the node ID based on the name
+//   uint32_t nodeId;
+//   for (auto it = nodeIdToName.begin(); it != nodeIdToName.end(); ++it) {
+//     if (it->second == currentName) {
+//       nodeId = it->first;
+//       break;
+//     }
+//   }
+//   currentName = String(nodeId);
+  
+
+//   // Convert JSON doc into sendable string
+//   String jsonString;
+//   serializeJson(doc, jsonString);
+
+//   Serial.printf("Sending new name to node: %s\n", currentName.c_str());
+
+//   mesh.sendSingle(currentName, jsonString);
+// }
 
 void handleMessage(String &from, String &msg) {
   // Print the received message for debugging
@@ -169,24 +201,51 @@ void handleMessage(String &from, String &msg) {
     Serial.println("Hello message received");
     // Check if nodeId and name are both the ID (uninitialized node)
     uint32_t nodeId = doc["nodeId"];
-    String nodeName = doc["name"];
-    if (String(nodeId) == nodeName) {
-      Serial.println("Node ID and name are the same");
-      // Create a new name based on how many nodes are provisioned
-      String newNodeName = "plant-" + String(mesh.getNodeList().size());
-      // Print new node name
-      Serial.printf("New node name: %s\n", newNodeName.c_str());
-      // Send the new name to the node
-      sendNameToNode(nodeName, newNodeName);
+    uint32_t putTrue = doc["putTrue"];
+    Serial.printf("Node ID: %u, putTrue: %u\n", nodeId, putTrue);
+    if (putTrue == 1) {
+      Serial.println("Node needs to be put in the server");
+      // Send the plant name for the node to the poster
+      StaticJsonDocument<200> doc;
+      doc["type"] = "config";
+      doc["nodeId"] = nodeId;
+      doc["name"] = String(nodeId);
+
+      // Convert JSON doc into sendable string
+      String jsonString;
+      serializeJson(doc, jsonString);
+      sendToPoster(jsonString);
+      // TODO: ADD userID to the MESSAGE ON THE POSTER SIDE
+
     } else {
       // Store node name in map
+      uint32_t nodeName = doc["name"];
       nodeIdToName[nodeId] = nodeName;
       // Print the map for debugging
-      Serial.println("Node ID to name map:");
+      // Serial.println("Node ID to name map:");
       for (auto it = nodeIdToName.begin(); it != nodeIdToName.end(); ++it) {
-        Serial.printf("Node ID: %u, Name: %s\n", it->first, it->second.c_str());
+        Serial.printf("Node ID: %u, Name: %u\n", it->first, it->second);
       }
+
+      
     }
+  }
+  else if (strcmp(type, "sensorhello") == 0) {
+    Serial.println("Sensor hello message received");
+    sendToPoster(msg);
+  }
+  else if (strcmp(type, "data") == 0) {
+    Serial.println("Data message received");
+    // Send the message to the poster
+    sendToPoster(msg);
+  }
+  else if (strcmp(type, "config") == 0) {
+    Serial.println("Config message received");
+    // Send the message to the poster
+    sendToPoster(msg);
+  }
+  else {
+    Serial.println("Unknown message type");
   }
   // return;
 }
@@ -241,5 +300,28 @@ void meshInit() {
 }
 
 void sendToPoster(String message) {
-  SerialPort1.println(message);
+  SerialPort1.println(message); 
+}
+
+// // Function to parse serial data
+void parseSerial(void *pvParameters) {
+  for (;;) {
+    if (SerialPort1.available()) {
+      String input = SerialPort1.readStringUntil('\n');
+      Serial.println(input);
+      StaticJsonDocument<200> doc;
+      deserializeJson(doc, input);
+      String type = doc["type"];
+
+      // Check for message type
+      if(type == "plantadd") {
+        Serial.println("Plant add message received");
+        sendInitialIdToNode(doc["nodeId"], doc["dbId"]);
+      }
+      if(type == "sensoradd") {
+        Serial.println("Sensor add message received");
+        sendSensorIdToNode(doc["nodeId"], doc["dbId"]);
+      }
+    }
+  }
 }
