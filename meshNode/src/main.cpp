@@ -206,10 +206,15 @@ void sendMessageHandler(String msg, SndMessageType type) {
       doc["sensorId"] = sensor1_id;
 
       // Nest the data in a data object
-      JsonObject data = doc.createNestedObject("data");
+      // JsonObject data = doc.createNestedObject("data");
+      StaticJsonDocument<200> data;
       data["temperatureF"] = docIn["temperatureF"];
       data["temperatureC"] = docIn["temperatureC"];
       data["humidity"] = docIn["humidity"];
+
+      String jsonStringData;
+      serializeJson(data, jsonStringData);
+      doc["data"] = jsonStringData;
 
       // Send the data message
       String jsonString;
@@ -292,7 +297,7 @@ void receiveMessageHandler(String msg) {
       Serial.printf("Sensor ID: %s\n", sensorID.c_str());
       // Delay for 5 seconds
       vTaskDelay(pdMS_TO_TICKS(5000));
-      // startSensorTask();
+      startSensorTask();
     }
   }
   // return;
