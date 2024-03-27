@@ -2,12 +2,13 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <cstring>
-#include <EEPROM.h>
+// #include <EEPROM.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h> // Include the DHT library
 // Include namedMesh.h from ./lib
 #include "sensor.h"
 #include "namedMesh.h"
+#include "eepromManager.h"
 
 // Mesh configuration
 Scheduler userScheduler; // to control mesh tasks
@@ -25,24 +26,8 @@ String to = "prov";
 #define SENSOR_1_TYPE MESH_DHT11
 Sensor* sensor1;
 
-// EEPROM configuration
-#define EEPROM_SIZE 512
-#define NAME_CHANGE_FLAG 0
-#define NODE_NAME 1
-#define SENSOR_1 103
-#define SENSOR_2 205
-#define SENSOR_3 307
-#define SENSOR_4 409
-#define EEPROM_UNIT_SIZE 102
-char name_buffer[512];
-uint32_t ncf = 0;
-
-// Sensor flags
-bool sensor1_flag = 0;
-bool sensor2_flag = 0;
-bool sensor3_flag = 0;
-bool sensor4_flag = 0;
-String sensor1_id;
+// EEPROMManager configuration
+EEPROMManager eepromManager;
 
 // Send message types
 enum SndMessageType {
@@ -64,25 +49,17 @@ void setup() {
   // Start serial monitoring for debugging
   Serial.begin(115200);
 
-  // Initialize EEPROM
-  EEPROM.begin(EEPROM_SIZE);
-
   // Initialize the mesh network
   meshInit();
 
-  // // Create new sensor factory
+  // Load the EEPROM
+  eepromManager.load();
+
+  // Create new sensor factory
+  // TODO: THIS NEEDS TO BE CHANGED
   SensorFactory* sensorFactory = new DHTSensorFactory();
   sensor1 = sensorFactory->createSensor(SENSOR_1_TYPE, SENSOR_1_PIN);
   sensor1_flag = 1;
-
-  // // Create FreeRTOS task for reading from DT11
-  // xTaskCreate(dhtReadTask,      // Task function
-  //             "DHTReadTask",    // Task name
-  //             10000,             // Stack size
-  //             NULL,              // Task parameters
-  //             2,                 // Task priority
-  //             NULL);             // Task handle
-
 }
 
 // Loop (most code should be in tasks)

@@ -1,4 +1,5 @@
 {
+    "C_Cpp.intelliSenseEngine": "Enabled",
     "files.associations": {
         "*.ejs": "html",
         "cmath": "cpp"

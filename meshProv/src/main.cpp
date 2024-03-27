@@ -28,7 +28,6 @@ enum MessageType {
   CONFIG,
   UNKNOWN
 };
-
 // Function declarations ------------------------------------------------------
 
 /*
@@ -323,5 +322,7 @@ void parseSerial(void *pvParameters) {
         sendSensorIdToNode(doc["nodeId"], doc["dbId"]);
       }
     }
+    vTaskDelay(pdMS_TO_TICKS(10)); // Delay for task switching
   }
+  
 }
