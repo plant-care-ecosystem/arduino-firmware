@@ -1,5 +1,11 @@
 #include <EEPROM.h>
 
+#define NODE_ID_TYPE 'N'
+#define SENSOR_1_TYPE '1'
+#define SENSOR_2_TYPE '2'
+#define SENSOR_3_TYPE '3'
+#define SENSOR_4_TYPE '4'
+
 class EEPROMManager {
 public:
     /**
@@ -48,7 +54,7 @@ public:
      * @param idType The type of ID to save ('N' for Node ID, '1' for Sensor 1 ID, '2' for Sensor 2 ID, '3' for Sensor 3 ID, '4' for Sensor 4 ID).
      * @param id The ID value to save.
      */
-    void save(char idType, char* id) {
+    void save(char idType, const char* id) {
         switch (idType) {
             case 'N':
                 EEPROM.put(this->NODE_ID, id);
@@ -109,6 +115,7 @@ public:
             case '4':
                 return this->sensor4ID;
         }
+        return -1;
     }
 
     uint8_t getChangeFlag() {

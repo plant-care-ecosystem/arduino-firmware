@@ -28,6 +28,11 @@ Sensor* sensor1;
 
 // EEPROMManager configuration
 EEPROMManager eepromManager;
+#define NODE_ID_TRUE (1 << 0)
+#define SENSOR_1_TRUE (1 << 1)
+#define SENSOR_2_TRUE (1 << 2)
+#define SENSOR_3_TRUE (1 << 3)
+#define SENSOR_4_TRUE (1 << 4)
 
 // Send message types
 enum SndMessageType {
@@ -59,7 +64,6 @@ void setup() {
   // TODO: THIS NEEDS TO BE CHANGED
   SensorFactory* sensorFactory = new DHTSensorFactory();
   sensor1 = sensorFactory->createSensor(SENSOR_1_TYPE, SENSOR_1_PIN);
-  sensor1_flag = 1;
 }
 
 // Loop (most code should be in tasks)
@@ -85,18 +89,10 @@ void sendMessageHandler(String msg, SndMessageType type) {
       doc["type"] = "hello";
       doc["nodeId"] = mesh.getNodeId();
 
-      // Check if there is a name already stored in EEPROM
-      // TODO: UPDATE THIS TO CHECK IF THE DBID IS ALREADY STORED IN EEPROM
-      if(EEPROM.read(NAME_CHANGE_FLAG) == 1) {
-        char name[EEPROM_UNIT_SIZE];
-        for(int i = 0; i < EEPROM_UNIT_SIZE - NODE_NAME; i++) {
-          name[i] = EEPROM.read(NODE_NAME + i);
-          // break if null terminator is found
-          if(name[i] == '\0') {
-            break;
-          }
-        }
-        doc["name"] = name;
+      // Check bit 0 of the change flag to see if Node ID has been set
+      if(eepromManager.getChangeFlag() & NODE_ID_TRUE) {
+        // TODO: CHANGE THE ID TO PASS INTS NOT STRINGS!!!
+        doc["name"] = String(eepromManager.getID(NODE_ID_TYPE));
         doc["putTrue"] = 0;
 
       } 
@@ -127,7 +123,7 @@ void sendMessageHandler(String msg, SndMessageType type) {
     case SENSORHELLO:
     {
       // Check if sensor1 is registered
-      if(sensor1_flag) {
+      if(eepromManager.getChangeFlag() & SENSOR_1_TRUE){
         // Send message containing node ID and current Name
         StaticJsonDocument<200> doc;
         doc["type"] = "sensorhello";
@@ -135,15 +131,7 @@ void sendMessageHandler(String msg, SndMessageType type) {
 
         // Check if there is a name already stored in EEPROM
         // TODO: UPDATE THIS TO CHECK IF THE DBID IS ALREADY STORED IN EEPROM
-        char name[EEPROM_UNIT_SIZE - NODE_NAME];
-        for(int i = 0; i < EEPROM_UNIT_SIZE - NODE_NAME; i++) {
-          name[i] = EEPROM.read(NODE_NAME + i);
-          // break if null terminator is found
-          if(name[i] == '\0') {
-            break;
-          }
-        }
-        doc["plantId"] = name;
+        doc["plantId"] = String(eepromManager.getID(SENSOR_1_TYPE));
         doc["name"] = "sensor1";
 
         String jsonString;
@@ -180,7 +168,7 @@ void sendMessageHandler(String msg, SndMessageType type) {
       //     break;
       //   }
       // }
-      doc["sensorId"] = sensor1_id;
+      doc["sensorId"] = eepromManager.getID(SENSOR_1_TYPE);
 
       // Nest the data in a data object
       // JsonObject data = doc.createNestedObject("data");
@@ -215,39 +203,9 @@ void receiveMessageHandler(String msg) {
   if(strcmp(type, "config") == 0) {
     // Store the name in EEPROM
     Serial.println("Received config message");
-    String name = doc["name"];
-    if(name.length() == 0) {
-      ncf = 0;
-    }
-    else {
-      // TODO: ADD CHECK HERE TO MAKE SURE THE LENGTH IS NOT LONGER THAN THE EEPROM
-      for(int i = 0; i < name.length(); i++) {
-        EEPROM.write(NODE_NAME + i, name[i]);
-      }
-      // Add null terminator
-      EEPROM.write(NODE_NAME + name.length(), '\0');
-      // Set name change flag to 1
-      EEPROM.write(NAME_CHANGE_FLAG, 1);
-      EEPROM.commit();
-    }
-    // Print the name change flag
-    Serial.printf("Name change flag: %d\n", EEPROM.read(NAME_CHANGE_FLAG));
-
-    // Store the name into the name buffer
-    // inputting a null terminator when name is empty
-    // if(name.length() == 0) {
-    //   name_buffer[0] = '\0';
-    //   ncf = 0;
-    // }
-    // else {
-    //   for(int i = 0; i < name.length(); i++) {
-    //     name_buffer[i] = name[i];
-    //   }
-    //   name_buffer[name.length()] = '\0';
-    //   ncf = 1;
-    // }
-    
-
+    const char* name = doc["name"];
+    // TODO: ADD CHECK HERE TO MAKE SURE THE LENGTH IS NOT LONGER THAN THE EEPROM
+    eepromManager.save(NODE_ID_TYPE, name);
     // Send another hello message to update the name
     sendMessageHandler("", HELLO);
 
@@ -260,24 +218,13 @@ void receiveMessageHandler(String msg) {
   else if(strcmp(type, "sensorConfig") == 0) {
     // Store the sensor ID in EEPROM
     Serial.println("Received sensorConfig message");
-    String sensorID = doc["sensorId"];
-    sensor1_id = sensorID;
-    // if(sensor1_id.length() == 0) {
-    //   sensor1_flag = 0;
-    // }
-    // else {
-    //   for(int i = 0; i < sensorID.length(); i++) {
-    //     EEPROM.write(SENSOR_1 + i, sensorID[i]);
-    //   }
-
-      // Print the sensor ID
-      Serial.printf("Sensor ID: %s\n", sensorID.c_str());
-      // Delay for 5 seconds
-      vTaskDelay(pdMS_TO_TICKS(5000));
-      startSensorTask();
-    }
+    const char* sensorID = doc["sensorId"];
+    eepromManager.save(SENSOR_1_TYPE, sensorID);
+    // Delay for 5 seconds
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    startSensorTask();
   }
-  // return;
+}
 
 void meshInit() {
   // Setup the mesh network
