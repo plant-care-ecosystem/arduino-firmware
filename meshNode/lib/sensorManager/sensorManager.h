@@ -161,6 +161,7 @@ public:
     }
 
     int returnSensorType(int sensorNumber) {
+        this->getSingleSensorType(sensorNumber);
         switch(sensorNumber) {
             case 1:
                 return this->sensor1Type;

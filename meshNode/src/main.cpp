@@ -3,7 +3,7 @@
 #include <WiFi.h>
 #include <cstring>
 #include <TaskScheduler.h>
-#include <string>
+// #include <string>
 // #include <EEPROM.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h> // Include the DHT library
@@ -23,12 +23,12 @@
 // String to = "prov";
 
 // EEPROMManager configuration
-UserEEPROMManager eepromManager;
-#define NODE_ID_TRUE (1 << 0)
-#define SENSOR_1_TRUE (1 << 1)
-#define SENSOR_2_TRUE (1 << 2)
-#define SENSOR_3_TRUE (1 << 3)
-#define SENSOR_4_TRUE (1 << 4)
+// UserEEPROMManager eepromManager;
+// #define NODE_ID_TRUE (1 << 0)
+// #define SENSOR_1_TRUE (1 << 1)
+// #define SENSOR_2_TRUE (1 << 2)
+// #define SENSOR_3_TRUE (1 << 3)
+// #define SENSOR_4_TRUE (1 << 4)
 
 // // Sensor configuration
 SensorManager sensorManager;
@@ -57,10 +57,10 @@ void setup() {
   // // Initialize the mesh network
   // meshInit();
 
-  // Load the EEPROM
-  eepromManager.load();
+  // Initialize the EEPROM
+  EEPROM.begin(EEPROM_SIZE);
 
-  delay(5000);
+  delay(3000);
   // Check that the sensors are the same after boot
   sensorTypeInit();
 
@@ -97,62 +97,55 @@ void startSensorTask() {
 }
 
 void sensorTypeInit() {
-  // Load the sensor type from EEPROM
-  eepromManager.loadSensorType();
-  eepromManager.loadChangeFlag();
-  Serial.printf("Change flag: %d\n", eepromManager.getChangeFlag());
-  char buffer[30];
+  String sensorType = "";
+  int totalChangeFlag = 0;
+  int currentSensorType = -1;
+  int eepromSensorType = -1;
+  // Read the change flags
+  readChangeFlags(); // Always has to happen first, will ensure this later
+  readSensorTypes();
+  // Read the sensor IDS
+  readSensorIDs();
 
-  sensorManager.getSingleSensorType(1);
-  // Check if sensor 1 exists
-  if(eepromManager.getChangeFlag() & SENSOR_1_TRUE) {
-    // Check the current sensor type is the same as the stored sensor type
-    if(sensorManager.returnSensorType(1) == eepromManager.getSensorType(1)) {
-      // No hello message necessary, same ID is fine
-      Serial.println("Sensor 1 is the same");
+  // Loop through all sensors
+  for(int i = 1; i < 5; i++) {
+    currentSensorType = sensorManager.returnSensorType(i);
+    Serial.printf("Sensor %d type: %d\n", i, currentSensorType);
+    // Check if the sensor type has been stored in EEPROM before
+    if (returnChangeFlag(i)) {
+      Serial.printf("Sensor %d has been stored in EEPROM before\n", i);
+      // Read the sensor type from EEPROM
+      eepromSensorType = returnSensorType(i);
+      // Check if the sensor type is the same as the one stored in EEPROM
+      if(currentSensorType != eepromSensorType) {
+        // Store the new sensor type in RAM and EEPROM
+        setSingleSensorType(i, currentSensorType);
+        
+        // Send a hello message to update the sensor type on the backend
+        Serial.printf("Sensor %d type has changed from %d to %d\n", i, eepromSensorType, currentSensorType);
+
+      }
+      else {
+        // No hello message necessary, can start sending from the same sensor ID
+        Serial.printf("Sensor %d type has not changed\n", i);
+        Serial.printf("No need to send a hello message\n");
+        // Load the sensor ID from EEPROM
+      }
+    }
+    else if (currentSensorType == UNKNOWN_SENSOR) {
+      Serial.printf("Sensor %d is unknown\n", i);
+      Serial.printf("No need to send a hello message\n");
     }
     else {
-      // Send sensorhello message
-      Serial.println("Sending sensorhello message for sensor 1 due to different value");
-      eepromManager.save(1, "12345", itoa(sensorManager.returnSensorType(1), buffer, 30));
-      // sendMessageHandler("", SENSORHELLO);
+      // Store the sensor type in EEPROM
+      Serial.printf("Sensor %d has not been stored in EEPROM before\n", i);
+      // Store the sensor type in EEPROM
+      setSingleSensorType(i, currentSensorType);
+      // Send a hello message to update the sensor type on the backend
+      Serial.printf("Sensor %d type has been stored in EEPROM\n", i);
+      Serial.printf("Sensor %d type has been sent to the backend\n", i);
     }
-  }
-  else {
-    // Send sensorhello message
-    Serial.println("Sending sensorhello message for sensor 1");
-    // sendMessageHandler("", SENSORHELLO);
-    eepromManager.save(1, "1234", itoa(sensorManager.returnSensorType(1), buffer, 30));  
-  }
-
-  delay(5000);
-
-  // Load the sensor type from EEPROM
-  eepromManager.loadSensorType();
-  eepromManager.loadChangeFlag();
-  Serial.printf("Change flag: %d\n", eepromManager.getChangeFlag());
-
-  sensorManager.getSingleSensorType(1);
-  // Check if sensor 1 exists
-  if(eepromManager.getChangeFlag() & SENSOR_1_TRUE) {
-    // Check the current sensor type is the same as the stored sensor type
-    if(sensorManager.returnSensorType(1) == eepromManager.getSensorType(1)) {
-      // No hello message necessary, same ID is fine
-      Serial.println("Sensor 1 is the same");
-    }
-    else {
-      // Send sensorhello message
-      Serial.println("Sending sensorhello message for sensor 1 due to different value");
-      eepromManager.save(1, "12345", itoa(sensorManager.returnSensorType(1), buffer, 30));
-      // sendMessageHandler("", SENSORHELLO);
-    }
-  }
-  else {
-    // Send sensorhello message
-    Serial.println("Sending sensorhello message for sensor 1");
-    // sendMessageHandler("", SENSORHELLO);
-    eepromManager.save(1, "1234", itoa(sensorManager.returnSensorType(1), buffer, 30));  
-  }
+  }  
 }
 
 // void sendMessageHandler(String msg, SndMessageType type) {
