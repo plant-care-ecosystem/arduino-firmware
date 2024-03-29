@@ -263,6 +263,27 @@ public:
         digitalWrite(DOUT_PWR_C, ((pin & 1) == 1)? HIGH : LOW);
     }
 
+    String generateSensorName(int sensorType, int sensorNumber) {
+        String sensorName = "";
+        switch(sensorType) {
+            case UserSensorType::DHT_SENSOR:
+                sensorName = "DHT";
+                break;
+            case UserSensorType::SOIL_MOISTURE_SENSOR:
+                sensorName = "Soil Moisture";
+                break;
+            case UserSensorType::LIGHT_SENSOR:
+                sensorName = "Light";
+                break;
+            case UserSensorType::RAIN_SENSOR:
+                sensorName = "Rain";
+                break;
+        }
+        sensorName += "-";
+        sensorName += sensorNumber;
+        return sensorName;
+    }
+
 private:
     int dhtResistorMin = 300;
     int dhtResistorMax = 400;

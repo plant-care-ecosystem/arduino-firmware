@@ -216,6 +216,22 @@ void setSingleSensorType(int idType, int currentSensorType) {
     EEPROM.commit();
 }
 
+// int getID(int idType) {
+//     switch (idType) {
+//         case 0:
+//             return nodeID;
+//         case 1:
+//             return sensor1ID;
+//         case 2:
+//             return sensor2ID;
+//         case 3:
+//             return sensor3ID;
+//         case 4:
+//             return sensor4ID;
+//     }
+//     return -1;
+// }
+
 // // Convert an integer to a char array with a \0 terminator
 // void intToCharArray(int id, char* idArray) {
 //     sprintf(idArray, "%d", id);

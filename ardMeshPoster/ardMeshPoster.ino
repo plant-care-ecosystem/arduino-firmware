@@ -120,6 +120,7 @@ void parseSerial(void *pvParameters) {
         StaticJsonDocument<200> returnDoc;
         returnDoc["type"] = "sensoradd";
         returnDoc["nodeId"] = doc["nodeId"];
+        returnDoc["sensorNumber"] = doc["sensorNumber"];
         returnDoc["dbId"] = dbId;
 
         serializeJson(returnDoc, jsonString);

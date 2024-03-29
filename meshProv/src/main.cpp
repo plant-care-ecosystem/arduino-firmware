@@ -144,10 +144,11 @@ void sendInitialIdToNode(String nodeId, String dbId) {
   mesh.sendSingle(nodeId, jsonString);
 }
 
-void sendSensorIdToNode(String nodeId, String dbId) {
+void sendSensorIdToNode(String nodeId, String dbId, int sensorPort) {
   StaticJsonDocument<200> doc;
   doc["type"] = "sensorConfig";
   doc["sensorId"] = dbId;
+  doc["sensorNumber"] = sensorPort;
 
   // Convert JSON doc into sendable string
   String jsonString;
