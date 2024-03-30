@@ -5,6 +5,7 @@
 #include <DHT.h> 
 #include <map>
 #include <ArduinoJson.h>
+#include <eepromManager.h>
 
 // Sensor type enum
 enum UserSensorType {
@@ -15,46 +16,50 @@ enum UserSensorType {
     UNKNOWN_SENSOR
 };
 
-// Map the power MUX to the signal MUX
-std::map<int, int> locationToSignal = {
-    {1, 2},
-    {2, 1},
-    {3, 0},
-    {4, 3}
-};
+// // Map the power MUX to the signal MUX
+// std::map<int, int> locationToSignal = {
+//     {1, 2},
+//     {2, 1},
+//     {3, 0},
+//     {4, 3}
+// };
 
 // Map the power MUX to the signal MUX
 std::map<int, int> locationToPower = {
-    {1, 2},
-    {2, 0},
-    {3, 1},
+    {1, 0},
+    {2, 1},
+    {3, 2},
     {4, 3}
 };
 
 // Map the power resistor MUX to the signal MUX
 std::map<int, int> locationToResistor = {
-    {1, 6},
-    {2, 4},
-    {3, 7},
-    {4, 5}
+    {1, 4},
+    {2, 5},
+    {3, 6},
+    {4, 7}
 };
 
 // Define pins
-#define MASTER_POWER 15
+#define MASTER_POWER 10
 
 // Define signal MUX control signal
-#define DOUT_SIG_A 11  // MSB
-#define DOUT_SIG_B 10   //
-#define DOUT_SIG_C 8   // LSB
-#define AIN 2         // Analog / Digital IN
-#define RIN 3
+// #define DOUT_SIG_A 11  // MSB
+// #define DOUT_SIG_B 10   //
+// #define DOUT_SIG_C 8   // LSB
+// #define AIN 2         // Analog / Digital IN
+#define AIN1 4 // Analog / Digital IN sensor 1
+#define AIN2 5
+#define AIN3 6
+#define AIN4 0
+#define RIN 1
 
 // Define power MUX control signal
 // Control which sensor is getting power
 // Control which sensor resistor is getting power for recognition
-#define DOUT_PWR_A 23  // MSB
-#define DOUT_PWR_B 22  //
-#define DOUT_PWR_C 21  // LSB
+#define DOUT_PWR_A 3  // MSB
+#define DOUT_PWR_B 2  //
+#define DOUT_PWR_C 11  // LSB
 // #define DOUT_PWR     // Transistor to change 3.3V to 5V
 
 // Other definitions
@@ -67,20 +72,34 @@ std::map<int, int> locationToResistor = {
 #define RESISTANCE_THRESHOLD 0.2  // kOhm
 #define NUM_SENSORS 4
 
-DHT dht(AIN, DHT11); // Initialize DHT sensor
+DHT dhtSensors[] = {
+    DHT(AIN1, DHT11), // Initialize DHT sensor
+    DHT(AIN2, DHT11), // Initialize DHT sensor
+    DHT(AIN3, DHT11), // Initialize DHT sensor
+    DHT(AIN4, DHT11) // Initialize DHT sensor
+};
+
+int analogPins[] = {AIN1, AIN2, AIN3, AIN4};
 
 class SensorManager {
 public:
 
     SensorManager() {
-        pinMode(AIN, INPUT);
+        pinMode(AIN1, INPUT);
+        pinMode(AIN2, INPUT);
+        pinMode(AIN3, INPUT);
+        pinMode(AIN4, INPUT);
         pinMode(RIN, INPUT);
-        pinMode(DOUT_SIG_A, OUTPUT);
-        pinMode(DOUT_SIG_B, OUTPUT);
-        pinMode(DOUT_SIG_C, OUTPUT);
+        // pinMode(DOUT_SIG_A, OUTPUT);
+        // pinMode(DOUT_SIG_B, OUTPUT);
+        // pinMode(DOUT_SIG_C, OUTPUT);
         pinMode(DOUT_PWR_A, OUTPUT);
         pinMode(DOUT_PWR_B, OUTPUT);
         pinMode(DOUT_PWR_C, OUTPUT);
+        pinMode(MASTER_POWER, OUTPUT);
+        // Turn on master power
+        digitalWrite(MASTER_POWER, HIGH);
+        Serial.print("Master power on\n");
     }
     
     // void getSensorTypes() {
@@ -123,25 +142,27 @@ public:
         this->getSingleSensorType(sensorNumber);
         this->set_pwr_mux(locationToPower[sensorNumber]);
         delay(1000);
-        this->set_sig_mux(locationToSignal[sensorNumber]);
-        switch(sensorNumber) {
-            case 1:
-                Serial.println("Reading sensor 1 data");
-                sensorData = this->readSensorData(this->sensor1Type);
-                break;
-            case 2:
-                Serial.println("Reading sensor 2 data");
-                sensorData = this->readSensorData(this->sensor2Type);
-                break;
-            case 3:
-                Serial.println("Reading sensor 3 data");
-                sensorData = this->readSensorData(this->sensor3Type);
-                break;
-            case 4:
-                Serial.println("Reading sensor 4 data");
-                sensorData = this->readSensorData(this->sensor4Type);
-                break;
-        }
+        // this->set_sig_mux(locationToSignal[sensorNumber]);
+        Serial.printf("Reading sensor %d data\n", sensorNumber);
+        sensorData = this->readSensorData(this->returnSensorType(sensorNumber), sensorNumber);
+        // switch(sensorNumber) {
+        //     case 1:
+        //         Serial.println("Reading sensor 1 data");
+        //         sensorData = this->readSensorData(sensor1Type, sensorNumber);
+        //         break;
+        //     case 2:
+        //         Serial.println("Reading sensor 2 data");
+        //         sensorData = this->readSensorData(sensor2Type, sensorNumber);
+        //         break;
+        //     case 3:
+        //         Serial.println("Reading sensor 3 data");
+        //         sensorData = this->readSensorData(sensor3Type, sensorNumber);
+        //         break;
+        //     case 4:
+        //         Serial.println("Reading sensor 4 data");
+        //         sensorData = this->readSensorData(sensor4Type, sensorNumber);
+        //         break;
+        // }
         return sensorData;
     }
 
@@ -164,13 +185,13 @@ public:
         this->getSingleSensorType(sensorNumber);
         switch(sensorNumber) {
             case 1:
-                return this->sensor1Type;
+                return sensor1Type;
             case 2:
-                return this->sensor2Type;
+                return sensor2Type;
             case 3:
-                return this->sensor3Type;
+                return sensor3Type;
             case 4:
-                return this->sensor4Type;
+                return sensor4Type;
         }
     }
 
@@ -178,24 +199,24 @@ public:
         // Check the analog read value and set the sensor type
         if(analogReadValue >= dhtResistorMin && analogReadValue <= dhtResistorMax) {
             // Set the sensor type to DHT
-            Serial.printf("Setting sensor on port %d to DHT\n", portNumber);
+            // Serial.printf("Setting sensor on port %d to DHT\n", portNumber);
             this->setSensorType(portNumber, UserSensorType::DHT_SENSOR);
         } else if(analogReadValue >= soilMoistureResistorMin && analogReadValue <= soilMoistureResistorMax) {
             // Set the sensor type to Soil Moisture
-            Serial.printf("Setting sensor on port %d to Soil Moisture\n", portNumber);
+            // Serial.printf("Setting sensor on port %d to Soil Moisture\n", portNumber);
             this->setSensorType(portNumber, UserSensorType::SOIL_MOISTURE_SENSOR);
         } else if(analogReadValue >= lightResistorMin && analogReadValue <= lightResistorMax) {
             // Set the sensor type to Light
-            Serial.printf("Setting sensor on port %d to Light\n", portNumber);
+            // Serial.printf("Setting sensor on port %d to Light\n", portNumber);
             this->setSensorType(portNumber, UserSensorType::LIGHT_SENSOR);
         } else if(analogReadValue >= rainResistorMin && analogReadValue <= rainResistorMax) {
             // Set the sensor type to Rain
-            Serial.printf("Setting sensor on port %d to Rain\n", portNumber);
+            // Serial.printf("Setting sensor on port %d to Rain\n", portNumber);
             this->setSensorType(portNumber, UserSensorType::RAIN_SENSOR);
         }
         else {
             // Set the sensor type to Unknown
-            Serial.println("Setting sensor type to Unknown");
+            // Serial.println("Setting sensor type to Unknown");
             this->setSensorType(portNumber, UserSensorType::UNKNOWN_SENSOR);
         }
         
@@ -204,57 +225,60 @@ public:
     void setSensorType(int sensorNumber, UserSensorType sensorType) {
         switch(sensorNumber) {
             case 1:
-                this->sensor1Type = sensorType;
+                sensor1Type = sensorType;
                 break;
             case 2:
-                this->sensor2Type = sensorType;
+                sensor2Type = sensorType;
                 break;
             case 3:
-                this->sensor3Type = sensorType;
+                sensor3Type = sensorType;
                 break;
             case 4:
-                this->sensor4Type = sensorType;
+                sensor4Type = sensorType;
                 break;
         }
     }
 
     // Funciton to check the sensor type and based on sensor type read the data
-    StaticJsonDocument<200> readSensorData(UserSensorType sensorType) {
+    StaticJsonDocument<200> readSensorData(int sensorType, int sensorNumber) {
         StaticJsonDocument<200> sensorData;
         switch(sensorType) {
             case UserSensorType::DHT_SENSOR:
                 // Read DHT sensor data
-                temperature = dht.readTemperature();
-                humidity = dht.readHumidity();
+                dhtSensors[sensorNumber - 1].begin();
+                temperature = dhtSensors[sensorNumber - 1].readTemperature();
+                humidity = dhtSensors[sensorNumber - 1].readHumidity();
+                // temperature = dht.readTemperature();
+                // humidity = dht.readHumidity();
                 sensorData["temperature"] = temperature;
                 sensorData["humidity"] = humidity;
                 break;
             case UserSensorType::SOIL_MOISTURE_SENSOR:
                 // Read Soil Moisture sensor data
-                soilMoisture = analogRead(AIN);
+                soilMoisture = analogRead(analogPins[sensorNumber - 1]);
                 sensorData["soilMoisture"] = soilMoisture;
                 break;
             case UserSensorType::LIGHT_SENSOR:
                 // Read Light sensor data
-                light = analogRead(AIN);
+                light = analogRead(analogPins[sensorNumber - 1]);
                 sensorData["light"] = light;
                 break;
             case UserSensorType::RAIN_SENSOR:
                 // Read Rain sensor data
-                rain = analogRead(AIN);
+                rain = analogRead(analogPins[sensorNumber - 1]);
                 sensorData["rain"] = rain;
                 break;
         }
         return sensorData;
     }
 
-    // Function to set signal MUX control bits
-    void set_sig_mux(int pin) {
-        pin = max(0, min(7, pin)); // Make sure the input is less than 7 and greater than 0
-        digitalWrite(DOUT_SIG_A, (((pin >> 2) & 1) == 1)? HIGH : LOW);
-        digitalWrite(DOUT_SIG_B, (((pin >> 1) & 1) == 1)? HIGH : LOW);
-        digitalWrite(DOUT_SIG_C, ((pin & 1) == 1)? HIGH : LOW);
-    }
+    // // Function to set signal MUX control bits
+    // void set_sig_mux(int pin) {
+    //     pin = max(0, min(7, pin)); // Make sure the input is less than 7 and greater than 0
+    //     digitalWrite(DOUT_SIG_A, (((pin >> 2) & 1) == 1)? HIGH : LOW);
+    //     digitalWrite(DOUT_SIG_B, (((pin >> 1) & 1) == 1)? HIGH : LOW);
+    //     digitalWrite(DOUT_SIG_C, ((pin & 1) == 1)? HIGH : LOW);
+    // }
     // Function to set power MUX control bits
     void set_pwr_mux(int pin) {
         pin = max(0, min(7, pin)); // Make sure the input is less than 7 and greater than 0
@@ -281,24 +305,25 @@ public:
         }
         sensorName += "-";
         sensorName += sensorNumber;
+        Serial.printf("Sensor Name: %s\n", sensorName.c_str());
         return sensorName;
     }
 
 private:
     int dhtResistorMin = 300;
     int dhtResistorMax = 400;
-    int soilMoistureResistorMin = 500;
-    int soilMoistureResistorMax = 650;
+    int soilMoistureResistorMin = 1050; //500;
+    int soilMoistureResistorMax = 1200;//650;
     int lightResistorMin = 850;
     int lightResistorMax = 950;
-    int rainResistorMin = 1050;
-    int rainResistorMax = 1200;
+    int rainResistorMin = 500;//1050;
+    int rainResistorMax = 650;//1200;
 
     // Sensor types
-    UserSensorType sensor1Type;
-    UserSensorType sensor2Type;
-    UserSensorType sensor3Type;
-    UserSensorType sensor4Type;
+    // UserSensorType sensor1Type;
+    // UserSensorType sensor2Type;
+    // UserSensorType sensor3Type;
+    // UserSensorType sensor4Type;
 
     float temperature;
     float humidity;

@@ -91,7 +91,11 @@ void parseSerial(void *pvParameters) {
 
         String jsonString;
         serializeJson(postDoc, jsonString);
-        uint32_t dbId = httpsHandler.requestHandler(jsonString, requestType::PUT, requestLocation::PLANT);
+      int32_t dbId = -1;
+      while ((dbId = httpsHandler.requestHandler(jsonString, requestType::PUT, requestLocation::PLANT)) == -1) {
+          // You can add a delay here if you want to avoid flooding the server with requests
+          delay(5000);
+      }
 
         StaticJsonDocument<200> returnDoc;
         returnDoc["type"] = "plantadd";
@@ -113,7 +117,12 @@ void parseSerial(void *pvParameters) {
 
         String jsonString;
         serializeJson(postDoc, jsonString);
-        uint32_t dbId = httpsHandler.requestHandler(jsonString, requestType::PUT, requestLocation::SENSOR);
+        // int32_t dbId = httpsHandler.requestHandler(jsonString, requestType::PUT, requestLocation::SENSOR);
+        int32_t dbId = -1;
+        while ((dbId = httpsHandler.requestHandler(jsonString, requestType::PUT, requestLocation::SENSOR)) == -1) {
+            // You can add a delay here if you want to avoid flooding the server with requests
+            delay(5000);
+        }
 
         Serial.printf("Sensor ID: %u", dbId);
 
@@ -135,7 +144,12 @@ void parseSerial(void *pvParameters) {
 
         String jsonString;
         serializeJson(postDoc, jsonString);
-        uint32_t dbId = httpsHandler.requestHandler(jsonString, requestType::POST, requestLocation::DATA);
+        // int32_t dbId = httpsHandler.requestHandler(jsonString, requestType::POST, requestLocation::DATA);
+        int32_t dbId = -1;
+        while ((dbId = httpsHandler.requestHandler(jsonString, requestType::PUT, requestLocation::DATA)) == -1) {
+            // You can add a delay here if you want to avoid flooding the server with requests
+            delay(5000);
+        }
 
         StaticJsonDocument<200> returnDoc;
         returnDoc["type"] = "sensoradd";

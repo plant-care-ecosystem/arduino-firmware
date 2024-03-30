@@ -41,6 +41,10 @@ void sendNameToNode(String currentName, String newName);
 
 void handleMessage(String &from, String &msg);
 
+void sendInitialIdToNode(String nodeId, String dbId);
+
+void sendSensorIdToNode(String nodeId, String dbId, int sensorPort);
+
 /*
  * Initialize the mesh network
  *
@@ -75,7 +79,26 @@ void sendToPoster(String message);
 //   }
 // }
 
-void parseSerial(void *pvParameters);
+Task parseSerialTask(50, TASK_FOREVER, []() {
+  if (SerialPort1.available()) {
+    String input = SerialPort1.readStringUntil('\n');
+    Serial.println(input);
+    StaticJsonDocument<200> doc;
+    deserializeJson(doc, input);
+    String type = doc["type"];
+
+    // Check for message type
+    if(type == "plantadd") {
+      Serial.println("Plant add message received");
+      sendInitialIdToNode(doc["nodeId"], doc["dbId"]);
+    }
+    if(type == "sensoradd") {
+      Serial.println("Sensor add message received");
+      sendSensorIdToNode(doc["nodeId"], doc["dbId"], doc["sensorNumber"]);
+    }
+  }
+    // vTaskDelay(pdMS_TO_TICKS(50)); // Delay for task switching
+});
 
 // Setup ----------------------------------------------------------------------
 void setup() {
@@ -100,13 +123,17 @@ void setup() {
   // xTaskCreate(readSerialInputTask, "ReadSerialInput", 10000, NULL, 1, NULL);
 
         // FreeRTOS task for handling serial port 1
-  xTaskCreate(parseSerial,   // Function to run
-              "SerialPort1Task", // Name of the task
-              10000,             // Stack size (bytes)
-              NULL,              // Parameter to pass
-              1,                 // Task priority
-              NULL               // Task handle
-  );
+  // xTaskCreate(parseSerial,   // Function to run
+  //             "SerialPort1Task", // Name of the task
+  //             10000,             // Stack size (bytes)
+  //             NULL,              // Parameter to pass
+  //             1,                 // Task priority
+  //             NULL               // Task handle
+  // );
+
+  // Create a parse serial task
+  userScheduler.addTask(parseSerialTask);
+  parseSerialTask.enable();
   
 }
 
@@ -226,8 +253,14 @@ void handleMessage(String &from, String &msg) {
       for (auto it = nodeIdToName.begin(); it != nodeIdToName.end(); ++it) {
         Serial.printf("Node ID: %u, Name: %u\n", it->first, it->second);
       }
+      // Send acknowledgment to the node
+      StaticJsonDocument<200> doc;
+      doc["type"] = "nodeAck";
 
-      
+      // Convert JSON doc into sendable string
+      String jsonString;
+      serializeJson(doc, jsonString);
+      mesh.sendSingle(nodeId, jsonString);
     }
   }
   else if (strcmp(type, "sensorhello") == 0) {
@@ -252,6 +285,7 @@ void handleMessage(String &from, String &msg) {
 
 // Initialize the mesh network
 void meshInit() {
+  Serial.println("Initializing mesh network");
   // Initialize the mesh network using SSID and password
   mesh.setDebugMsgTypes(ERROR);  // set before init() so that you can see startup messages if necessary
   mesh.init(MESH_SSID, MESH_PASSWORD, &userScheduler, MESH_PORT);
@@ -303,27 +337,27 @@ void sendToPoster(String message) {
   SerialPort1.println(message); 
 }
 
-// // Function to parse serial data
-void parseSerial(void *pvParameters) {
-  for (;;) {
-    if (SerialPort1.available()) {
-      String input = SerialPort1.readStringUntil('\n');
-      Serial.println(input);
-      StaticJsonDocument<200> doc;
-      deserializeJson(doc, input);
-      String type = doc["type"];
+// // // Function to parse serial data
+// void parseSerial(void *pvParameters) {
+//   for (;;) {
+//     if (SerialPort1.available()) {
+//       String input = SerialPort1.readStringUntil('\n');
+//       Serial.println(input);
+//       StaticJsonDocument<200> doc;
+//       deserializeJson(doc, input);
+//       String type = doc["type"];
 
-      // Check for message type
-      if(type == "plantadd") {
-        Serial.println("Plant add message received");
-        sendInitialIdToNode(doc["nodeId"], doc["dbId"]);
-      }
-      if(type == "sensoradd") {
-        Serial.println("Sensor add message received");
-        sendSensorIdToNode(doc["nodeId"], doc["dbId"]);
-      }
-    }
-    vTaskDelay(pdMS_TO_TICKS(10)); // Delay for task switching
-  }
+//       // Check for message type
+//       if(type == "plantadd") {
+//         Serial.println("Plant add message received");
+//         sendInitialIdToNode(doc["nodeId"], doc["dbId"]);
+//       }
+//       if(type == "sensoradd") {
+//         Serial.println("Sensor add message received");
+//         sendSensorIdToNode(doc["nodeId"], doc["dbId"], doc["sensorNumber"]);
+//       }
+//     }
+//     // vTaskDelay(pdMS_TO_TICKS(50)); // Delay for task switching
+//   }
   
-}
+// }

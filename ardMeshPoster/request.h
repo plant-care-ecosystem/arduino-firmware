@@ -61,7 +61,7 @@ public:
    * @param requestLocation The location of the request (PLANT, SENSOR, DATA).
    * @return The result of the request handling, -1 upon error.
    */
-  uint32_t requestHandler(String msg, requestType httpType, requestLocation requestLocation) {
+  int32_t requestHandler(String msg, requestType httpType, requestLocation requestLocation) {
     // Check the server connection
     while(!checkConnected()) {
       Serial.println("Failed to connect to server. Retrying...");
@@ -155,7 +155,7 @@ private:
    * 
    * @return The dbId retrieved from the response.
    */
-  uint32_t readResponse() {
+  int32_t readResponse() {
     // Read HTTP response status line
     String statusLine = client.readStringUntil('\n');
     statusLine.trim();  // remove trailing whitespace
@@ -166,6 +166,7 @@ private:
     } else {
       Serial.println("Request failed!");
       Serial.println("Response: " + statusLine);
+      return -1;
     }
 
     // Read full JSON response from server

@@ -6,25 +6,24 @@
 // #define SENSOR_3_TYPE '3'
 // #define SENSOR_4_TYPE '4'
 
-#define EEPROM_SIZE 512
+#define EEPROM_SIZE 1024
 #define EEPROM_UNIT_SIZE 100
-#define EEPROM_NAME_SIZE 10
 
 #define NODE_ID_CHANGE_FLAG 0
-#define NODE_ID 50
+#define NODE_ID 5
 
 #define SENSOR_1_CHANGE_FLAG 1
 #define SENSOR_2_CHANGE_FLAG 2
 #define SENSOR_3_CHANGE_FLAG 3
 #define SENSOR_4_CHANGE_FLAG 4
-#define SENSOR_1_ID 10
-#define SENSOR_2_ID 60
-#define SENSOR_3_ID 110
-#define SENSOR_4_ID 160
-#define SENSOR_1_TNAME 210
-#define SENSOR_2_TNAME 220
-#define SENSOR_3_TNAME 230
-#define SENSOR_4_TNAME 240
+#define SENSOR_1_ID 106
+#define SENSOR_2_ID 206
+#define SENSOR_3_ID 306
+#define SENSOR_4_ID 406
+#define SENSOR_1_TNAME 506
+#define SENSOR_2_TNAME 516
+#define SENSOR_3_TNAME 526
+#define SENSOR_4_TNAME 536
 
 int nodeID;
 int nodeIDChangeFlag;
@@ -39,10 +38,10 @@ int sensor2ChangeFlag = 0;
 int sensor3ChangeFlag = 0;
 int sensor4ChangeFlag = 0;
 
-int sensor1Type = 4;
-int sensor2Type = 4;
-int sensor3Type = 4;
-int sensor4Type = 4;
+int sensor1Type = -1;
+int sensor2Type = -1;
+int sensor3Type = -1;
+int sensor4Type = -1;
 
 int returnChangeFlag(int idType) {
     switch (idType) {
@@ -63,42 +62,22 @@ int returnChangeFlag(int idType) {
 
 // Loop through EEPROM and read each byte into string
 int readEEPROMChars(int offset) {
-    Serial.printf("Reading EEPROM at offset: %d\n", offset);
     String id = "";
     for(int i = 0; i < EEPROM_UNIT_SIZE; i++) {
-        // Serial.printf("Reading EEPROM at offset: %d\n", offset + i);
         char c = EEPROM.read(offset + i);
-        // Serial.printf("Char: %c\n", c);
         // break if null terminator is found
         if(c == '\0') {
             break;
         }
         id += c;
     }
-    Serial.printf("EEPROM read returned: %s\n", id);
-    Serial.println();
     return id.toInt();
-
-    //   String id;
-
-    // if(isTypeName) {
-    //     char buffer[EEPROM_NAME_SIZE];
-    //     EEPROM.get(offset, buffer);
-    //     id = String(buffer);
-    // }
-    // else {
-    //     char buffer[EEPROM_UNIT_SIZE];
-    //     EEPROM.get(offset, buffer);
-    //     id = String(buffer);
-    // }
-
-    // return id.toInt();
-
 }
 
 // Read the changeFlag
 void readChangeFlags() {
     nodeIDChangeFlag = EEPROM.read(NODE_ID_CHANGE_FLAG);
+    // Check if value is 255, if so, set flag to 0
     if(nodeIDChangeFlag == 255) {
         nodeIDChangeFlag = 0;
     }
@@ -149,10 +128,6 @@ void readSensorTypes() {
 }
 
 void readSensorIDs() {
-    if(returnChangeFlag(0) == 1) {
-        nodeID = readEEPROMChars(NODE_ID);
-    }
-
     if(returnChangeFlag(1) == 1) {
         sensor1ID = readEEPROMChars(SENSOR_1_ID);
     }
