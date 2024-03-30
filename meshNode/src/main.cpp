@@ -778,12 +778,12 @@ void dataTask(void *pvParameters) {
           Serial.printf("Sensor %d is unknown\n", i);
           Serial.printf("No need to send a hello message\n");
           // Store sensor type in EEPROM
-          setSingleSensorType(i, currentSensorType);
         }
         else {
           // Send a hello message to update the sensor type on the backend
           sendMessageHandler("", SENSORHELLO, i);      
         }
+        setSingleSensorType(i, currentSensorType);
         // Wait for the message to return
         vTaskDelay(pdMS_TO_TICKS(20000));
         // restart the loop
@@ -805,7 +805,7 @@ void dataTask(void *pvParameters) {
         String jsonString;
         serializeJson(sensorData, jsonString);
         // Send the data
-        // sendMessageHandler(jsonString, DATA, i);
+        sendMessageHandler(jsonString, DATA, i);
         Serial.printf("Sensor %d data: %s\n", i, jsonString.c_str());
         Serial.printf("Sending data to the backend\n");
       }
