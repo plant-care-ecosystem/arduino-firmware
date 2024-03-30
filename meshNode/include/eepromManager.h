@@ -168,6 +168,12 @@ void readSensorIDs() {
     if(returnChangeFlag(4) == 1) {
         sensor4ID = readEEPROMChars(SENSOR_4_ID);
     }
+
+    Serial.printf("Node ID: %d\n", nodeID);
+    Serial.printf("Sensor 1 ID: %d\n", sensor1ID);
+    Serial.printf("Sensor 2 ID: %d\n", sensor2ID);
+    Serial.printf("Sensor 3 ID: %d\n", sensor3ID);
+    Serial.printf("Sensor 4 ID: %d\n", sensor4ID);
 }
 
 int returnSensorType(int idType) {
@@ -216,6 +222,7 @@ int returnChangeFlagOffset(int idType) {
 void setSingleSensorType(int idType, int currentSensorType) {
     int offset = returnSensorTypeOffset(idType);
     String sensorTypeString = String(currentSensorType).c_str();
+    Serial.printf("Sensor Type Being Set To: %d\n", currentSensorType);
     // Store the new sensor type in RAM
     switch (idType) {
         case 1:

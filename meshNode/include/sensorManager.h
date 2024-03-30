@@ -97,6 +97,12 @@ public:
         pinMode(DOUT_PWR_B, OUTPUT);
         pinMode(DOUT_PWR_C, OUTPUT);
         pinMode(MASTER_POWER, OUTPUT);
+
+        dhtSensors[0].begin();
+        dhtSensors[1].begin();
+        dhtSensors[2].begin();
+        dhtSensors[3].begin();
+
         // Turn on master power
         digitalWrite(MASTER_POWER, HIGH);
         Serial.print("Master power on\n");
@@ -140,9 +146,10 @@ public:
         // Go through sensor 1 - 4 and get the data
         // Get sensor1 data
         this->getSingleSensorType(sensorNumber);
-        this->set_pwr_mux(locationToPower[sensorNumber]);
-        delay(1000);
-        // this->set_sig_mux(locationToSignal[sensorNumber]);
+
+        // TODO: SET POWER MUX IN TASK!!!!
+        // this->set_pwr_mux(locationToPower[sensorNumber]);
+        // delay(1000);
         Serial.printf("Reading sensor %d data\n", sensorNumber);
         sensorData = this->readSensorData(this->returnSensorType(sensorNumber), sensorNumber);
         // switch(sensorNumber) {
@@ -168,10 +175,14 @@ public:
 
     void getSingleSensorType(int sensorNumber) {
         int rinValue = 0;
+        // Serial.printf("Getting sensor type for sensor %d\n", sensorNumber);
         // Run power to resistor of sensor 1
         // Serial.printf("Setting power to sensor %d\n", locationToResistor[sensorNumber]);
-        this->set_pwr_mux(locationToResistor[sensorNumber]);
-        delay(1000);
+
+        // TODO: SET POWER MUX IN TASK!!!!
+
+        // this->set_pwr_mux(locationToResistor[sensorNumber]);
+        // delay(1000);
         // Read the analog value on the RIN Pin
         for(int i = 0; i < 500; i++) {
             rinValue += analogRead(RIN);
@@ -182,7 +193,7 @@ public:
     }
 
     int returnSensorType(int sensorNumber) {
-        this->getSingleSensorType(sensorNumber);
+        // this->getSingleSensorType(sensorNumber);
         switch(sensorNumber) {
             case 1:
                 return sensor1Type;
@@ -239,38 +250,87 @@ public:
         }
     }
 
-    // Funciton to check the sensor type and based on sensor type read the data
-    StaticJsonDocument<200> readSensorData(int sensorType, int sensorNumber) {
-        StaticJsonDocument<200> sensorData;
-        switch(sensorType) {
-            case UserSensorType::DHT_SENSOR:
-                // Read DHT sensor data
-                dhtSensors[sensorNumber - 1].begin();
-                temperature = dhtSensors[sensorNumber - 1].readTemperature();
-                humidity = dhtSensors[sensorNumber - 1].readHumidity();
-                // temperature = dht.readTemperature();
-                // humidity = dht.readHumidity();
-                sensorData["temperature"] = temperature;
-                sensorData["humidity"] = humidity;
-                break;
-            case UserSensorType::SOIL_MOISTURE_SENSOR:
-                // Read Soil Moisture sensor data
-                soilMoisture = analogRead(analogPins[sensorNumber - 1]);
-                sensorData["soilMoisture"] = soilMoisture;
-                break;
-            case UserSensorType::LIGHT_SENSOR:
-                // Read Light sensor data
-                light = analogRead(analogPins[sensorNumber - 1]);
-                sensorData["light"] = light;
-                break;
-            case UserSensorType::RAIN_SENSOR:
-                // Read Rain sensor data
-                rain = analogRead(analogPins[sensorNumber - 1]);
-                sensorData["rain"] = rain;
-                break;
-        }
-        return sensorData;
+    // // Funciton to check the sensor type and based on sensor type read the data
+    // StaticJsonDocument<200> readSensorData(int sensorType, int sensorNumber) {
+    //     StaticJsonDocument<200> sensorData;
+    //     switch(sensorType) {
+    //         case UserSensorType::DHT_SENSOR:
+    //             // Read DHT sensor data
+    //             dhtSensors[sensorNumber - 1].begin();
+    //             temperature = dhtSensors[sensorNumber - 1].readTemperature();
+    //             humidity = dhtSensors[sensorNumber - 1].readHumidity();
+    //             // temperature = dht.readTemperature();
+    //             // humidity = dht.readHumidity();
+    //             sensorData["temperature"] = temperature;
+    //             sensorData["humidity"] = humidity;
+    //             break;
+    //         case UserSensorType::SOIL_MOISTURE_SENSOR:
+    //             // Read Soil Moisture sensor data
+    //             soilMoisture = analogRead(analogPins[sensorNumber - 1]);
+    //             sensorData["soilMoisture"] = soilMoisture;
+    //             break;
+    //         case UserSensorType::LIGHT_SENSOR:
+    //             // Read Light sensor data
+    //             light = analogRead(analogPins[sensorNumber - 1]);
+    //             sensorData["light"] = light;
+    //             break;
+    //         case UserSensorType::RAIN_SENSOR:
+    //             // Read Rain sensor data
+    //             rain = analogRead(analogPins[sensorNumber - 1]);
+    //             sensorData["rain"] = rain;
+    //             break;
+    //     }
+    //     return sensorData;
+    // }
+
+    // Function to check the sensor type and based on sensor type read the data
+StaticJsonDocument<200> readSensorData(int sensorType, int sensorNumber, int numReadings = 500) {
+    StaticJsonDocument<200> sensorData;
+    // Serial.printf("Reading sensor %d data\n", sensorNumber);
+    // Serial.printf("Sensor Type: %d\n", sensorType);
+    // Serial.printf("Num Readings: %d\n", numReadings);
+    switch(sensorType) {
+        case UserSensorType::DHT_SENSOR:
+            // Read DHT sensor data
+            dhtSensors[sensorNumber - 1].begin();
+            temperature = 0.0;
+            humidity = 0.0;
+            for(int i = 0; i < numReadings; i++) {
+                temperature += dhtSensors[sensorNumber - 1].readTemperature();
+                humidity += dhtSensors[sensorNumber - 1].readHumidity();
+            }
+            sensorData["temperature"] = temperature / numReadings;
+            sensorData["humidity"] = humidity / numReadings;
+            break;
+        case UserSensorType::SOIL_MOISTURE_SENSOR:
+            // Read Soil Moisture sensor data
+            soilMoisture = 0;
+            for(int i = 0; i < numReadings; i++) {
+                soilMoisture += analogRead(analogPins[sensorNumber - 1]);
+            }
+            sensorData["soilMoisture"] = soilMoisture / numReadings;
+            break;
+        case UserSensorType::LIGHT_SENSOR:
+            // Read Light sensor data
+            light = 0;
+            for(int i = 0; i < numReadings; i++) {
+                light += analogRead(analogPins[sensorNumber - 1]);
+                delay(2000);  // Wait a bit between readings
+            }
+            sensorData["light"] = light / numReadings;
+            break;
+        case UserSensorType::RAIN_SENSOR:
+            // Read Rain sensor data
+            rain = 0;
+            for(int i = 0; i < numReadings; i++) {
+                rain += analogRead(analogPins[sensorNumber - 1]);
+                delay(2000);  // Wait a bit between readings
+            }
+            sensorData["rain"] = rain / numReadings;
+            break;
     }
+    return sensorData;
+}
 
     // // Function to set signal MUX control bits
     // void set_sig_mux(int pin) {
@@ -281,6 +341,7 @@ public:
     // }
     // Function to set power MUX control bits
     void set_pwr_mux(int pin) {
+        // Serial.printf("Setting power mux to %d\n", pin);
         pin = max(0, min(7, pin)); // Make sure the input is less than 7 and greater than 0
         digitalWrite(DOUT_PWR_A, (((pin >> 2) & 1) == 1)? HIGH : LOW);
         digitalWrite(DOUT_PWR_B, (((pin >> 1) & 1) == 1)? HIGH : LOW);

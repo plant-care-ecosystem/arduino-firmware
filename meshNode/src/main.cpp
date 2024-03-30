@@ -25,6 +25,8 @@ String to = "prov";
 // Communication flags
 int nodeIDRcvFlag = 0;
 int sensorSendFlags[4] = {0, 0, 0, 0};
+int runningFlag = 0;
+int globalTaskCount = 1;
 
 // // Sensor configuration
 SensorManager sensorManager;
@@ -43,43 +45,175 @@ void sendMessageHandler(String msg, SndMessageType type, int sensorNumber = -1);
 void receiveMessageHandler(String msg);
 void sensorTypeInit();
 String createJsonString(float temperature_f, float temperature_c, float humidity);
-// void dhtReadTask(void *pvParameters);
-Task dataTask(15000, TASK_FOREVER, [](){
+void dataTask(void *pvParameters);
+
+// // Task reading config
+// StaticJsonDocument<200> dataParser() {
+//   StaticJsonDocument<200> doc;
+//   // Deserialize the message
+//   deserializeJson(doc, "config");
+//   return doc;
+// }
+
+
+// Create tasks for setting power mux and reading each sensor
+void setPowerMux1Callback(); 
+Task setPowerMux1Task(0, TASK_ONCE, &setPowerMux1Callback);
+
+void readSensor1Callback();
+Task readSensor1Task(2000, TASK_ONCE, &readSensor1Callback);
+
+void setPowerMux2Callback();
+Task setPowerMux2Task(2000, TASK_ONCE, &setPowerMux2Callback);
+
+void readSensor2Callback();
+Task readSensor2Task(2000, TASK_ONCE, &readSensor2Callback);
+
+void setPowerMux3Callback();
+Task setPowerMux3Task(2000, TASK_ONCE, &setPowerMux3Callback);
+
+void readSensor3Callback();
+Task readSensor3Task(2000, TASK_ONCE, &readSensor3Callback);
+
+void setPowerMux4Callback();
+Task setPowerMux4Task(2000, TASK_ONCE, &setPowerMux4Callback);
+
+void readSensor4Callback();
+Task readSensor4Task(2000, TASK_ONCE, &readSensor4Callback);
+
+// Create a master task
+void masterTaskCallback();
+Task masterTask(60000, TASK_FOREVER, &masterTaskCallback); // Run every 60000 ms (1 minute)
+
+void setPowerMux1Callback() {
+  Serial.printf("Setting power mux 1\n");
+  // Set the power mux to the correct location
+  sensorManager.set_pwr_mux(locationToPower[1]);
+  // Enable the read sensor task
+  readSensor1Task.set(2000, TASK_ONCE, &readSensor1Callback);
+  readSensor1Task.enableDelayed(2000);
+
+}
+
+void readSensor1Callback() {
   StaticJsonDocument<200> sensorData;
-    int lastSensorType;
-    for(int i = 1; i < 5; i++) {
-      // Record current sensor type as last sensor type
-      lastSensorType = sensorManager.returnSensorType(i);
-      // Get the single sensor type from the resistor value
-      sensorManager.getSingleSensorType(i);
-      // Check the current sensor type is the same as stored in ram
-      Serial.printf("Last sensor type: %d\n", lastSensorType);
-      Serial.printf("Sensor %d type: %d\n", i, sensorManager.returnSensorType(i));
+  // Read the sensor data
+  Serial.printf("Sensor 1 Type: %d\n", sensor1Type);
+  Serial.printf("Sensor 2 Type: %d\n", sensor2Type);
+  Serial.printf("Sensor 3 Type: %d\n", sensor3Type);
+  Serial.printf("Sensor 4 Type: %d\n", sensor4Type);
 
-      // if(lastSensorType != sensorManager.returnSensorType(i)) {
-      //   // Store the new sensor type in EEPROM
-      //   setSingleSensorType(i, sensorManager.returnSensorType(i));
-        
-      //   // Send a hello message to update the sensor type on the backend
-      //   sendMessageHandler("", SENSORHELLO, i);
 
-      //   delay(15000);
-      // }
-      // Read the sensor data
-      // Check that sensor is not unknown 
-      if(sensorManager.returnSensorType(i) == UNKNOWN_SENSOR) {
-        Serial.printf("Sensor %d is unknown\n", i);
-      }
-      else {
-        sensorData = sensorManager.getSensorData(i);
-        // Serialize the data
-        String jsonString;
-        serializeJson(sensorData, jsonString);
-        // Send the data
-        sendMessageHandler(jsonString, DATA, i);
-      }
-    }
-});
+  sensorData = sensorManager.readSensorData(sensorManager.returnSensorType(1), 1);
+  // Serialize the data
+  String jsonString;
+  serializeJson(sensorData, jsonString);
+  // Send the data
+  // sendMessageHandler(jsonString, DATA, 1);
+  Serial.printf("Sensor 1 data: %s\n", jsonString.c_str());
+
+  // Enable the second power mux task
+  setPowerMux2Task.set(8000, TASK_ONCE, &setPowerMux2Callback);
+  setPowerMux2Task.enableDelayed(8000);
+}
+
+void setPowerMux2Callback() {
+  // Set the power mux to the correct location
+  sensorManager.set_pwr_mux(locationToPower[2]);
+  // Enable the read sensor task
+  readSensor2Task.set(2000, TASK_ONCE, &readSensor2Callback);
+  readSensor2Task.enableDelayed(2000);
+}
+
+void readSensor2Callback() {
+  StaticJsonDocument<200> sensorData;
+
+  Serial.printf("Sensor 1 Type: %d\n", sensor1Type);
+  Serial.printf("Sensor 2 Type: %d\n", sensor2Type);
+  Serial.printf("Sensor 3 Type: %d\n", sensor3Type);
+  Serial.printf("Sensor 4 Type: %d\n", sensor4Type);
+  // Read the sensor data
+  sensorData = sensorManager.readSensorData(sensorManager.returnSensorType(2), 2);
+  // Serialize the data
+  String jsonString;
+  serializeJson(sensorData, jsonString);
+  // Send the data
+  // sendMessageHandler(jsonString, DATA, 2);
+  Serial.printf("Sensor 2 data: %s\n", jsonString.c_str());
+
+  // Enable the third power mux task
+  setPowerMux3Task.set(8000, TASK_ONCE, &setPowerMux3Callback);
+  setPowerMux3Task.enableDelayed(8000);
+}
+
+void setPowerMux3Callback() {
+  // Set the power mux to the correct location
+  sensorManager.set_pwr_mux(locationToPower[3]);
+  // Enable the read sensor task
+  readSensor3Task.set(2000, TASK_ONCE, &readSensor3Callback);
+  readSensor3Task.enableDelayed(2000);
+}
+
+void readSensor3Callback() {
+  StaticJsonDocument<200> sensorData;
+
+  Serial.printf("Sensor 1 Type: %d\n", sensor1Type);
+  Serial.printf("Sensor 2 Type: %d\n", sensor2Type);
+  Serial.printf("Sensor 3 Type: %d\n", sensor3Type);
+  Serial.printf("Sensor 4 Type: %d\n", sensor4Type);
+  // Read the sensor data
+  sensorData = sensorManager.readSensorData(sensorManager.returnSensorType(3), 3);
+  // Serialize the data
+  String jsonString;
+  serializeJson(sensorData, jsonString);
+  // Send the data
+  // sendMessageHandler(jsonString, DATA, 3);
+  Serial.printf("Sensor 3 data: %s\n", jsonString.c_str());
+
+  // Enable the fourth power mux task
+  setPowerMux4Task.set(8000, TASK_ONCE, &setPowerMux4Callback);
+  setPowerMux4Task.enableDelayed(8000);
+}
+
+void setPowerMux4Callback() {
+  // Set the power mux to the correct location
+  sensorManager.set_pwr_mux(locationToPower[4]);
+  // Enable the read sensor task
+  readSensor4Task.set(2000, TASK_ONCE, &readSensor4Callback);
+  readSensor4Task.enableDelayed(2000);
+}
+
+void readSensor4Callback() {
+  StaticJsonDocument<200> sensorData;
+
+  Serial.printf("Sensor 1 Type: %d\n", sensor1Type);
+  Serial.printf("Sensor 2 Type: %d\n", sensor2Type);
+  Serial.printf("Sensor 3 Type: %d\n", sensor3Type);
+  Serial.printf("Sensor 4 Type: %d\n", sensor4Type);
+  // Read the sensor data
+  sensorData = sensorManager.readSensorData(sensorManager.returnSensorType(4), 4);
+  // Serialize the data
+  String jsonString;
+  serializeJson(sensorData, jsonString);
+  // Send the data
+  // sendMessageHandler(jsonString, DATA, 4);
+  Serial.printf("Sensor 4 data: %s\n", jsonString.c_str());
+}
+
+// The master task callback function
+void masterTaskCallback() {
+    // Enable the first power mux task
+    Serial.printf("Master task running\n");
+    setPowerMux1Task.set(2000, TASK_ONCE, &setPowerMux1Callback);
+    setPowerMux1Task.enableDelayed(2000);
+}
+
+
+
+
+
+
+
 
 // Send hello message every 30 seconds until node ack is received
 Task sendHelloTask(30000, TASK_FOREVER, []() {
@@ -156,17 +290,31 @@ void setup() {
 // Loop (most code should be in tasks)
 void loop() {
   mesh.update();
+  userScheduler.execute();
 }
 
 void startSensorTask() {
-  // xTaskCreate(dataTask,      // Task function
-  //             "DataTask",    // Task name
-  //             10000,             // Stack size
-  //             NULL,              // Task parameters
-  //             1,                 // Task priority
-  //             NULL);             // Task handle
-  userScheduler.addTask(dataTask);
-  dataTask.enable();
+  xTaskCreate(dataTask,      // Task function
+              "DataTask",    // Task name
+              10000,             // Stack size
+              NULL,              // Task parameters
+              1,                 // Task priority
+              NULL);             // Task handle
+  // userScheduler.addTask(dataTask);
+  // dataTask.enable();
+
+  // Start master task callback
+  Serial.println("Starting master task\n");
+  // userScheduler.addTask(masterTask);
+  // userScheduler.addTask(setPowerMux1Task);
+  // userScheduler.addTask(readSensor1Task);
+  // userScheduler.addTask(setPowerMux2Task);
+  // userScheduler.addTask(readSensor2Task);
+  // userScheduler.addTask(setPowerMux3Task);
+  // userScheduler.addTask(readSensor3Task);
+  // userScheduler.addTask(setPowerMux4Task);
+  // userScheduler.addTask(readSensor4Task);
+  // masterTask.enable();
 }
 
 void sendMessageHandler(String msg, SndMessageType type, int sensorNumber) {
@@ -266,6 +414,13 @@ void sendMessageHandler(String msg, SndMessageType type, int sensorNumber) {
       //     break;
       //   }
       // }
+      Serial.printf("Sensor number: %d\n", sensorNumber);
+      if(sensorManager.returnSensorType(sensorNumber) == UNKNOWN_SENSOR){
+        Serial.println("Unknown sensor number\n");
+        break;
+      }
+
+
       if(sensorNumber == 1) {
         doc["sensorId"] = sensor1ID;
       }
@@ -282,6 +437,7 @@ void sendMessageHandler(String msg, SndMessageType type, int sensorNumber) {
         Serial.println("Unknown sensor number\n");
         break;
       }
+
 
       doc["data"] = msg;
       // // Nest the data in a data object
@@ -418,9 +574,10 @@ void receiveMessageHandler(String msg) {
     }
     // Check if all the send flags have been received and processed
     // If so, start the data task
-    if(!sensorSendFlags[0] && !sensorSendFlags[1] && !sensorSendFlags[2] && !sensorSendFlags[3]) {
-      userScheduler.addTask(dataTask);
-      dataTask.enable();
+    if(!sensorSendFlags[0] && !sensorSendFlags[1] && !sensorSendFlags[2] && !sensorSendFlags[3] && !runningFlag) {
+      // userScheduler.addTask(dataTask);
+      // dataTask.enable();
+      startSensorTask();
     }
   }
   else if(strcmp(type, "nodeAck") == 0) {
@@ -439,13 +596,21 @@ void sensorTypeInit() {
 
   // Loop through all sensors
   for(int i = 1; i < 5; i++) {
+    eepromSensorType = returnSensorType(i);
+    // Power the resistor lines
+    sensorManager.set_pwr_mux(locationToResistor[i]);
+
+    delay(1000);
+    // Get the current sensor type
+    sensorManager.getSingleSensorType(i);
+
     currentSensorType = sensorManager.returnSensorType(i);
+
     Serial.printf("Sensor %d type: %d\n", i, currentSensorType);
     // Check if the sensor type has been stored in EEPROM before
     if (returnChangeFlag(i)) {
       Serial.printf("Sensor %d has been stored in EEPROM before\n", i);
       // Read the sensor type from EEPROM
-      eepromSensorType = returnSensorType(i);
       // Check if the sensor type is the same as the one stored in EEPROM
       if(currentSensorType != eepromSensorType) {
         // Store the new sensor type in RAM and EEPROM
@@ -453,11 +618,20 @@ void sensorTypeInit() {
         
         // Send a hello message to update the sensor type on the backend
         Serial.printf("Sensor %d type has changed from %d to %d\n", i, eepromSensorType, currentSensorType);
-
+        // Send a sensor hello if the type is not now unknown
+        if(currentSensorType != UNKNOWN_SENSOR) {
+          sendMessageHandler("", SENSORHELLO, i);
+          Serial.printf("Sensor %d type has been sent to the backend\n", i);
+          sensorSendFlags[i - 1] = 1;
+        }
+        else {
+          Serial.printf("Sensor %d type is unknown\n", i);
+          Serial.printf("No need to send a hello message\n");
+        }
         // Send a hello message to update the sensor type on the backend
-        sendMessageHandler("", SENSORHELLO, i);
-        Serial.printf("Sensor %d type has been sent to the backend\n", i);
-        sensorSendFlags[i - 1] = 1;
+        // sendMessageHandler("", SENSORHELLO, i);
+        // Serial.printf("Sensor %d type has been sent to the backend\n", i);
+        // sensorSendFlags[i - 1] = 1;
 
       }
       else {
@@ -484,9 +658,16 @@ void sensorTypeInit() {
       sensorSendFlags[i - 1] = 1;
     }
   }  
+  Serial.printf("Sensor send flags: %d, %d, %d, %d\n", sensorSendFlags[0], sensorSendFlags[1], sensorSendFlags[2], sensorSendFlags[3]);
   if(!sensorSendFlags[0] && !sensorSendFlags[1] && !sensorSendFlags[2] && !sensorSendFlags[3]) {
-      userScheduler.addTask(dataTask);
-      dataTask.enable();
+      // userScheduler.addTask(dataTask);
+      // dataTask.enable();
+      Serial.printf("Starting sensor task\n");
+      Serial.printf("Sensor 1 type: %d\n", sensor1Type);
+      Serial.printf("Sensor 2 type: %d\n", sensor2Type);
+      Serial.printf("Sensor 3 type: %d\n", sensor3Type);
+      Serial.printf("Sensor 4 type: %d\n", sensor4Type);
+      startSensorTask();
     }
 }
 
@@ -565,53 +746,90 @@ void sensorTypeInit() {
 // }
 
 // Task function to send data over mesh network
-// void dataTask(void *pvParameters) {
-//   (void)pvParameters; // Unused parameter
+void dataTask(void *pvParameters) {
+  (void)pvParameters; // Unused parameter
+  runningFlag = 1;
+  Serial.printf("Starting data task\n");
+  for (;;) {
+    StaticJsonDocument<200> sensorData;
+    int lastSensorType;
+    int currentSensorType;
+    for(int i = 1; i < 5; i++) {
+      
+      // Record current sensor type as last sensor type
+      lastSensorType = sensorManager.returnSensorType(i);
+      // Get the single sensor type from the resistor value
+      // Switch the power to the correct location
+      sensorManager.set_pwr_mux(locationToResistor[i]);
+      // Non-blocking delay for 1 seconds to allow power to switch
+      vTaskDelay(pdMS_TO_TICKS(1000));
+      sensorManager.getSingleSensorType(i);
+      Serial.printf("Last sensor type: %d\n", lastSensorType);
+      currentSensorType = sensorManager.returnSensorType(i);
+      Serial.printf("Current sensor type: %d\n", currentSensorType);
+      Serial.println();
 
-//   for (;;) {
-//     StaticJsonDocument<200> sensorData;
-//     int lastSensorType;
-//     for(int i = 1; i < 5; i++) {
-//       // Record current sensor type as last sensor type
-//       lastSensorType = sensorManager.returnSensorType(i);
-//       // Get the single sensor type from the resistor value
-//       sensorManager.getSingleSensorType(i);
-//       // Check the current sensor type is the same as stored in ram
-
-//       if(lastSensorType != sensorManager.returnSensorType(i)) {
-//         // Store the new sensor type in EEPROM
-//         setSingleSensorType(i, sensorManager.returnSensorType(i));
+      if(currentSensorType != lastSensorType) {
+        Serial.printf("Changing sensor %d type from %d to %d\n", i, lastSensorType, currentSensorType);
+        // Store the new sensor type in EEPROM
+        setSingleSensorType(i, currentSensorType);
         
-//         // Send a hello message to update the sensor type on the backend
-//         sendMessageHandler("", SENSORHELLO, i);
+        if(currentSensorType == UNKNOWN_SENSOR) {
+          Serial.printf("Sensor %d is unknown\n", i);
+          Serial.printf("No need to send a hello message\n");
+          // Store sensor type in EEPROM
+          setSingleSensorType(i, currentSensorType);
+        }
+        else {
+          // Send a hello message to update the sensor type on the backend
+          sendMessageHandler("", SENSORHELLO, i);      
+        }
+        // Wait for the message to return
+        vTaskDelay(pdMS_TO_TICKS(20000));
+        // restart the loop
+        continue;    
+      }
 
-//         delay(15000);
-//       }
-//       // Read the sensor data
-//       sensorData = sensorManager.getSensorData(i);
-//       // Serialize the data
-//       String jsonString;
-//       serializeJson(sensorData, jsonString);
-//       // Send the data
-//       sendMessageHandler(jsonString, DATA, i);
-//     }
-    
-//     // Wait for 5 seconds before the next message
-//     vTaskDelay(pdMS_TO_TICKS(15000));
-//   }
-// }
+      // Check if data should be sent
+      if(currentSensorType == UNKNOWN_SENSOR) {
+        // Serial.printf("Sensor %d is unknown\n", i);
+      }
+      else {
+        // Switch the power mux to the correct place
+        sensorManager.set_pwr_mux(locationToPower[i]);
+        // Non-blocking delay for 2 seconds to allow power to switch
+        vTaskDelay(pdMS_TO_TICKS(2000));
+        // Read the sensor data
+        sensorData = sensorManager.readSensorData(currentSensorType, i);
+        // Serialize the data
+        String jsonString;
+        serializeJson(sensorData, jsonString);
+        // Send the data
+        // sendMessageHandler(jsonString, DATA, i);
+        Serial.printf("Sensor %d data: %s\n", i, jsonString.c_str());
+        Serial.printf("Sending data to the backend\n");
+      }
+    }
+    // // Wait for 10 seconds before the next message
+    vTaskDelay(pdMS_TO_TICKS(30000));
+    // globalTaskCount++;
+    // if(globalTaskCount > 4) {
+    //   globalTaskCount = 1;
+    // }
+  }
+}
 
-// // Put sensor data into a JSON string
-// String createJsonString(float temperature_f, float temperature_c, float humidity) {
-//   StaticJsonDocument<200> doc;
+// // // Put sensor data into a JSON string
+// // String createJsonString(float temperature_f, float temperature_c, float humidity) {
+// //   StaticJsonDocument<200> doc;
 
-//   doc["nodeId"] = nodeName;
-//   doc["temperatureF"] = temperature_f;
-//   doc["temperatureC"] = temperature_c;
-//   doc["humidity"] = humidity;
+// //   doc["nodeId"] = nodeName;
+// //   doc["temperatureF"] = temperature_f;
+// //   doc["temperatureC"] = temperature_c;
+// //   doc["humidity"] = humidity;
 
-//   String jsonString;
-//   serializeJson(doc, jsonString);
+// //   String jsonString;
+// //   serializeJson(doc, jsonString);
 
-//   return jsonString;
-// }
+// //   return jsonString;
+// // }
