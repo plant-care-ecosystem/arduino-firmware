@@ -627,6 +627,8 @@ void sensorTypeInit() {
         else {
           Serial.printf("Sensor %d type is unknown\n", i);
           Serial.printf("No need to send a hello message\n");
+          // Store the sensor type in EEPROM
+          setSingleSensorType(i, currentSensorType);
         }
         // Send a hello message to update the sensor type on the backend
         // sendMessageHandler("", SENSORHELLO, i);
@@ -644,6 +646,7 @@ void sensorTypeInit() {
     else if (currentSensorType == UNKNOWN_SENSOR) {
       Serial.printf("Sensor %d is unknown\n", i);
       Serial.printf("No need to send a hello message\n");
+      setSingleSensorType(i, currentSensorType);
     }
     else {
       // Store the sensor type in EEPROM
@@ -754,6 +757,7 @@ void dataTask(void *pvParameters) {
     StaticJsonDocument<200> sensorData;
     int lastSensorType;
     int currentSensorType;
+    readSensorTypes();
     for(int i = 1; i < 5; i++) {
       
       // Record current sensor type as last sensor type
@@ -785,9 +789,9 @@ void dataTask(void *pvParameters) {
         }
         setSingleSensorType(i, currentSensorType);
         // Wait for the message to return
-        vTaskDelay(pdMS_TO_TICKS(20000));
+        vTaskDelay(pdMS_TO_TICKS(15000));
         // restart the loop
-        continue;    
+        // continue;    
       }
 
       // Check if data should be sent
@@ -810,6 +814,7 @@ void dataTask(void *pvParameters) {
         Serial.printf("Sending data to the backend\n");
       }
     }
+    readSensorTypes();
     // // Wait for 10 seconds before the next message
     vTaskDelay(pdMS_TO_TICKS(30000));
     // globalTaskCount++;

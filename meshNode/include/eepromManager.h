@@ -22,9 +22,9 @@
 #define SENSOR_3_ID 110
 #define SENSOR_4_ID 160
 #define SENSOR_1_TNAME 210
-#define SENSOR_2_TNAME 220
-#define SENSOR_3_TNAME 230
-#define SENSOR_4_TNAME 240
+#define SENSOR_2_TNAME 230
+#define SENSOR_3_TNAME 250
+#define SENSOR_4_TNAME 270
 
 int nodeID;
 int nodeIDChangeFlag;
