@@ -308,7 +308,8 @@ StaticJsonDocument<200> readSensorData(int sensorType, int sensorNumber, int num
             for(int i = 0; i < numReadings; i++) {
                 soilMoisture += analogRead(analogPins[sensorNumber - 1]);
             }
-            sensorData["soilMoisture"] = soilMoisture / numReadings;
+            Serial.printf("Soil Moisture: %d\n", soilMoisture / numReadings);
+            sensorData["soilMoisture"] = constrain(map((soilMoisture / numReadings), 1250, 600, 0, 100), 0, 100);
             break;
         case UserSensorType::LIGHT_SENSOR:
             // Read Light sensor data

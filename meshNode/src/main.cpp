@@ -2,16 +2,13 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <cstring>
-// #include <TaskScheduler.h>
-// #include <string>
-// #include <EEPROM.h>
 #include <Adafruit_Sensor.h>
-#include <DHT.h> // Include the DHT library
-// Include namedMesh.h from ./lib
-// #include "sensor.h"
+#include <DHT.h>
+// #include <BLEDevice.h>
+// #include <BLEUtils.h>
+// #include <BLEServer.h>
 #include "namedMesh.h"
-// #include "eepromManager.h"
-#include "sensorManager.h"
+#include "sensorManager.h" // EEPROM manager included in this
 
 // Mesh configuration
 Scheduler userScheduler; // to control mesh tasks
@@ -21,6 +18,7 @@ Scheduler userScheduler; // to control mesh tasks
 namedMesh  mesh;
 String nodeName; // TODO: Check if this is necessary
 String to = "prov";
+String output = "output";
 
 // Communication flags
 int nodeIDRcvFlag = 0;
@@ -440,23 +438,13 @@ void sendMessageHandler(String msg, SndMessageType type, int sensorNumber) {
 
 
       doc["data"] = msg;
-      // // Nest the data in a data object
-      // // JsonObject data = doc.createNestedObject("data");
-      // StaticJsonDocument<200> data;
-      // // data["temperatureF"] = docIn["temperatureF"];
-      // // data["temperatureC"] = docIn["temperatureC"];
-      // // data["humidity"] = docIn["humidity"];
-
-      // // String jsonStringData;
-      // // serializeJson(data, jsonStringData);
-      // // doc["data"] = jsonStringData;
-      // data = sensorManager.readSensorData(SENSOR_1_TYPE);
 
       // // Send the data message
       String jsonString;
       serializeJson(doc, jsonString);
       Serial.printf("Sending data message: %s\n", jsonString.c_str());
       mesh.sendSingle(to, jsonString);
+      mesh.sendSingle(output, jsonString);
 
       break;
     }
@@ -727,27 +715,6 @@ void sensorTypeInit() {
 //   });
 // }
 
-// // Task function to read DHT sensor data
-// void dhtReadTask(void *pvParameters) {
-//   (void)pvParameters; // Unused parameter
-
-//   for (;;) {
-//     // Read sensor values
-//     float humidity = dht.readHumidity();
-//     float temperature = dht.readTemperature();
-
-//     // Print the values to serial monitor
-//     Serial.print("Humidity: ");
-//     Serial.print(humidity);
-//     Serial.print("%, Temperature: ");
-//     Serial.print(temperature);
-//     Serial.println("°C");
-
-//     // Wait for 2 seconds before the next reading
-//     vTaskDelay(pdMS_TO_TICKS(2000));
-//   }
-// }
-
 // Task function to send data over mesh network
 void dataTask(void *pvParameters) {
   (void)pvParameters; // Unused parameter
@@ -816,25 +783,10 @@ void dataTask(void *pvParameters) {
     }
     readSensorTypes();
     // // Wait for 10 seconds before the next message
-    vTaskDelay(pdMS_TO_TICKS(30000));
+    vTaskDelay(pdMS_TO_TICKS(15000));
     // globalTaskCount++;
     // if(globalTaskCount > 4) {
     //   globalTaskCount = 1;
     // }
   }
 }
-
-// // // Put sensor data into a JSON string
-// // String createJsonString(float temperature_f, float temperature_c, float humidity) {
-// //   StaticJsonDocument<200> doc;
-
-// //   doc["nodeId"] = nodeName;
-// //   doc["temperatureF"] = temperature_f;
-// //   doc["temperatureC"] = temperature_c;
-// //   doc["humidity"] = humidity;
-
-// //   String jsonString;
-// //   serializeJson(doc, jsonString);
-
-// //   return jsonString;
-// // }

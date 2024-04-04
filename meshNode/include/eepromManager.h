@@ -11,7 +11,7 @@
 #define EEPROM_NAME_SIZE 10
 
 #define NODE_ID_CHANGE_FLAG 0
-#define NODE_ID 50
+#define NODE_ID 290
 
 #define SENSOR_1_CHANGE_FLAG 1
 #define SENSOR_2_CHANGE_FLAG 2
