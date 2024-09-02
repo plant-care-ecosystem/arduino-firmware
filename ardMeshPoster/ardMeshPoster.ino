@@ -78,6 +78,7 @@ String readEEPROMChars(int offset) {
 class MyCallbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
       String value = pCharacteristic->getValue();
+      Serial.printf("Received value from BLE: %s\n", value);
       
       // Json parse the value
       StaticJsonDocument<200> doc;
@@ -204,12 +205,19 @@ void wifiConnect() {
   Serial.print("Attempting to connect to SSID: ");
   Serial.println(ssid);
   WiFi.begin(ssid.c_str(), password.c_str());
-
+  
+  int retries = 0;
   // Attempt to connect to Wifi network:
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
     // Wait 1 second for re-trying
     delay(1000);
+    retries++;
+    if(retries > 15) {
+      Serial.println("Failed to connect to WiFi...");
+      // Break out of the loop
+      return;
+    }
   }
 
   Serial.print("Connected to ");

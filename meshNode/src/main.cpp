@@ -18,7 +18,14 @@ Scheduler userScheduler; // to control mesh tasks
 namedMesh  mesh;
 String nodeName; // TODO: Check if this is necessary
 String to = "prov";
-String output = "output";
+
+// #define OUTPUT1_FLAG 1
+
+#ifdef OUTPUT1_FLAG
+  String output = "output1";
+#else
+  String output = "output2";
+#endif
 
 // Communication flags
 int nodeIDRcvFlag = 0;
@@ -242,6 +249,9 @@ void setup() {
 
   mesh.setDebugMsgTypes(ERROR);  // set before init() so that you can see startup messages
 
+  digitalWrite(MASTER_POWER, HIGH);
+  Serial.println("Master power on");
+
   mesh.init(MESH_SSID, MESH_PASSWORD, &userScheduler, MESH_PORT);
 
   // Set the name to the node ID
@@ -272,7 +282,6 @@ void setup() {
       // sendMessageHandler("", HELLO);
       // // vTaskDelay(pdMS_TO_TICKS(15000));
       // Serial.println("Waiting for node ID ack to be received\n");
-      
   });
 
   userScheduler.addTask(sendHelloTask);
@@ -615,9 +624,10 @@ void sensorTypeInit() {
         else {
           Serial.printf("Sensor %d type is unknown\n", i);
           Serial.printf("No need to send a hello message\n");
-          // Store the sensor type in EEPROM
-          setSingleSensorType(i, currentSensorType);
+          
         }
+        // Store the sensor type in EEPROM
+        setSingleSensorType(i, currentSensorType);
         // Send a hello message to update the sensor type on the backend
         // sendMessageHandler("", SENSORHELLO, i);
         // Serial.printf("Sensor %d type has been sent to the backend\n", i);
@@ -648,6 +658,7 @@ void sensorTypeInit() {
       Serial.printf("Sensor %d type has been sent to the backend\n", i);
       sensorSendFlags[i - 1] = 1;
     }
+    readSensorTypes();
   }  
   Serial.printf("Sensor send flags: %d, %d, %d, %d\n", sensorSendFlags[0], sensorSendFlags[1], sensorSendFlags[2], sensorSendFlags[3]);
   if(!sensorSendFlags[0] && !sensorSendFlags[1] && !sensorSendFlags[2] && !sensorSendFlags[3]) {
@@ -733,7 +744,7 @@ void dataTask(void *pvParameters) {
       // Switch the power to the correct location
       sensorManager.set_pwr_mux(locationToResistor[i]);
       // Non-blocking delay for 1 seconds to allow power to switch
-      vTaskDelay(pdMS_TO_TICKS(1000));
+      vTaskDelay(pdMS_TO_TICKS(2000));
       sensorManager.getSingleSensorType(i);
       Serial.printf("Last sensor type: %d\n", lastSensorType);
       currentSensorType = sensorManager.returnSensorType(i);
@@ -767,11 +778,14 @@ void dataTask(void *pvParameters) {
       }
       else {
         // Switch the power mux to the correct place
+        Serial.println("Reading sensor data true\n");
         sensorManager.set_pwr_mux(locationToPower[i]);
         // Non-blocking delay for 2 seconds to allow power to switch
         vTaskDelay(pdMS_TO_TICKS(2000));
         // Read the sensor data
+        Serial.println("Trying to read sensor data\n");
         sensorData = sensorManager.readSensorData(currentSensorType, i);
+        
         // Serialize the data
         String jsonString;
         serializeJson(sensorData, jsonString);

@@ -104,8 +104,8 @@ public:
         dhtSensors[3].begin();
 
         // Turn on master power
-        digitalWrite(MASTER_POWER, HIGH);
-        Serial.print("Master power on\n");
+        // digitalWrite(MASTER_POWER, HIGH);
+        // Serial.print("Master power on\n");
     }
     
     // void getSensorTypes() {
@@ -188,7 +188,7 @@ public:
             rinValue += analogRead(RIN);
         }
         rinValue = rinValue / 500;
-        // Serial.printf("RIN Value: %d\n", rinValue);
+        Serial.printf("RIN Value: %d\n", rinValue);
         this->readResistorType(rinValue, sensorNumber);
     }
 
@@ -286,9 +286,13 @@ public:
     // Function to check the sensor type and based on sensor type read the data
 StaticJsonDocument<200> readSensorData(int sensorType, int sensorNumber, int numReadings = 500) {
     StaticJsonDocument<200> sensorData;
-    // Serial.printf("Reading sensor %d data\n", sensorNumber);
-    // Serial.printf("Sensor Type: %d\n", sensorType);
-    // Serial.printf("Num Readings: %d\n", numReadings);
+    Serial.printf("Reading sensor %d data\n", sensorNumber);
+    Serial.printf("Sensor Type: %d\n", sensorType);
+    Serial.printf("Num Readings: %d\n", numReadings);
+    int tempReading;
+    int humidityReading;
+    int tempCount = 0;
+    int humidityCount = 0;
     switch(sensorType) {
         case UserSensorType::DHT_SENSOR:
             // Read DHT sensor data
@@ -296,11 +300,21 @@ StaticJsonDocument<200> readSensorData(int sensorType, int sensorNumber, int num
             temperature = 0.0;
             humidity = 0.0;
             for(int i = 0; i < numReadings; i++) {
-                temperature += dhtSensors[sensorNumber - 1].readTemperature();
-                humidity += dhtSensors[sensorNumber - 1].readHumidity();
+                tempReading = dhtSensors[sensorNumber - 1].readTemperature();
+                humidityReading = dhtSensors[sensorNumber - 1].readHumidity();
+
+                if (!isnan(tempReading)) {
+                    temperature += tempReading;
+                    tempCount++;
+                }
+
+                if (!isnan(humidityReading)) {
+                    humidity += humidityReading;
+                    humidityCount++;
+                }
             }
-            sensorData["temperature"] = temperature / numReadings;
-            sensorData["humidity"] = humidity / numReadings;
+            sensorData["temperature"] = temperature / tempCount;
+            sensorData["humidity"] = humidity / humidityCount;
             break;
         case UserSensorType::SOIL_MOISTURE_SENSOR:
             // Read Soil Moisture sensor data
@@ -315,19 +329,17 @@ StaticJsonDocument<200> readSensorData(int sensorType, int sensorNumber, int num
             // Read Light sensor data
             light = 0;
             for(int i = 0; i < numReadings; i++) {
-                light += analogRead(analogPins[sensorNumber - 1]);
-                delay(2000);  // Wait a bit between readings
+                light += analogRead(analogPins[sensorNumber - 1]);  // Wait a bit between readings
             }
-            sensorData["light"] = light / numReadings;
+            sensorData["light"] = constrain(map(light / numReadings, 2600, 40, 0, 100), 0, 100);
             break;
         case UserSensorType::RAIN_SENSOR:
             // Read Rain sensor data
             rain = 0;
             for(int i = 0; i < numReadings; i++) {
-                rain += analogRead(analogPins[sensorNumber - 1]);
-                delay(2000);  // Wait a bit between readings
+                rain += analogRead(analogPins[sensorNumber - 1]); // Wait a bit between readings
             }
-            sensorData["rain"] = rain / numReadings;
+            sensorData["rain"] = constrain(map(rain / numReadings, 2700, 850, 0, 100), 0, 100);
             break;
     }
     return sensorData;
@@ -373,11 +385,11 @@ StaticJsonDocument<200> readSensorData(int sensorType, int sensorNumber, int num
 
 private:
     int dhtResistorMin = 300;
-    int dhtResistorMax = 400;
+    int dhtResistorMax = 450;
     int soilMoistureResistorMin = 1050; //500;
-    int soilMoistureResistorMax = 1200;//650;
+    int soilMoistureResistorMax = 1300;//650;
     int lightResistorMin = 850;
-    int lightResistorMax = 950;
+    int lightResistorMax = 1000;
     int rainResistorMin = 500;//1050;
     int rainResistorMax = 650;//1200;
 
